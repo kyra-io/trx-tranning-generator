@@ -11,6 +11,10 @@ import {
   workoutFeedback,
   workouts,
 } from '@/lib/db/schema';
+import {
+  calculateWorkoutMuscleSummary,
+  type WorkoutMuscleSummary,
+} from '@/lib/workouts/workout-muscle-summary';
 
 type WorkoutSummary = Pick<
   typeof workouts.$inferSelect,
@@ -67,6 +71,7 @@ type WorkoutExercise = Pick<
 };
 
 export type WorkoutDetail = WorkoutSummary & {
+  muscleSummary: WorkoutMuscleSummary[];
   feedback: Pick<
     typeof workoutFeedback.$inferSelect,
     'difficulty' | 'notes' | 'createdAt'
@@ -148,7 +153,12 @@ export async function getWorkoutById(
   ]);
 
   if (blocks.length === 0) {
-    return { ...workout, feedback: feedback ?? null, blocks: [] };
+    return {
+      ...workout,
+      muscleSummary: [],
+      feedback: feedback ?? null,
+      blocks: [],
+    };
   }
 
   const workoutExerciseRows = await db
@@ -267,12 +277,15 @@ export async function getWorkoutById(
     exercisesByBlockId.set(row.blockId, blockExercises);
   }
 
+  const workoutBlocksWithExercises = blocks.map((block) => ({
+    ...block,
+    exercises: exercisesByBlockId.get(block.id) ?? [],
+  }));
+
   return {
     ...workout,
+    muscleSummary: calculateWorkoutMuscleSummary(workoutBlocksWithExercises),
     feedback: feedback ?? null,
-    blocks: blocks.map((block) => ({
-      ...block,
-      exercises: exercisesByBlockId.get(block.id) ?? [],
-    })),
+    blocks: workoutBlocksWithExercises,
   };
 }
