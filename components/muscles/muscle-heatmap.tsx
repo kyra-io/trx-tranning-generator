@@ -15,6 +15,7 @@ type MuscleRegion = {
 
 export type MuscleHeatmapProps = {
   muscles: MuscleHeatmapItem[];
+  contextLabel?: string;
 };
 
 export const muscleRegions: Record<string, MuscleRegion> = {
@@ -135,9 +136,11 @@ function BodySilhouette() {
 function BodyFigure({
   view,
   scoresByRegion,
+  contextLabel,
 }: {
   view: BodyView;
   scoresByRegion: Map<string, number>;
+  contextLabel: string;
 }) {
   return (
     <div className="min-w-0 flex-1">
@@ -146,7 +149,7 @@ function BodyFigure({
       </p>
       <svg
         role="img"
-        aria-label={`${view === "front" ? "Front" : "Back"} muscle activation heatmap for this workout`}
+        aria-label={`${view === "front" ? "Front" : "Back"} muscle activation heatmap for ${contextLabel}`}
         viewBox="0 0 140 286"
         className="mx-auto block h-auto w-full max-w-36"
       >
@@ -176,7 +179,10 @@ function BodyFigure({
   );
 }
 
-export function MuscleHeatmap({ muscles }: MuscleHeatmapProps) {
+export function MuscleHeatmap({
+  muscles,
+  contextLabel = "this workout",
+}: MuscleHeatmapProps) {
   if (muscles.length === 0) {
     return (
       <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-6 text-center">
@@ -204,8 +210,16 @@ export function MuscleHeatmap({ muscles }: MuscleHeatmapProps) {
   return (
     <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white p-4">
       <div className="flex w-full items-start justify-center gap-2 px-1 sm:gap-5">
-        <BodyFigure view="front" scoresByRegion={scoresByRegion} />
-        <BodyFigure view="back" scoresByRegion={scoresByRegion} />
+        <BodyFigure
+          view="front"
+          scoresByRegion={scoresByRegion}
+          contextLabel={contextLabel}
+        />
+        <BodyFigure
+          view="back"
+          scoresByRegion={scoresByRegion}
+          contextLabel={contextLabel}
+        />
       </div>
 
       <ol className="mt-4 divide-y divide-zinc-100 border-t border-zinc-100 pt-1">

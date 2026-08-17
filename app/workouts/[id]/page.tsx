@@ -80,7 +80,12 @@ function ExerciseCard({
 
         <div className="min-w-0 flex-1 py-0.5">
           <h3 className="font-semibold leading-5 text-zinc-900">
-            {exercise.name}
+            <Link
+              href={`/exercises/${exercise.id}`}
+              className="-my-2 inline-flex min-h-11 items-center rounded-md py-2 outline-none hover:text-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-700"
+            >
+              {exercise.name}
+            </Link>
           </h3>
           <p className="mt-1 text-xs text-zinc-500">
             {humanize(exercise.primaryPattern || exercise.family || "Exercise")}
