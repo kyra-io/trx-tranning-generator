@@ -8,6 +8,7 @@ import {
   muscles,
   workoutBlocks,
   workoutExercises,
+  workoutFeedback,
   workouts,
 } from '@/lib/db/schema';
 
@@ -66,6 +67,10 @@ type WorkoutExercise = Pick<
 };
 
 type WorkoutDetail = WorkoutSummary & {
+  feedback: Pick<
+    typeof workoutFeedback.$inferSelect,
+    'difficulty' | 'notes' | 'createdAt'
+  > | null;
   blocks: Array<
     Pick<
       typeof workoutBlocks.$inferSelect,
@@ -110,20 +115,31 @@ export async function getWorkoutById(
     return null;
   }
 
-  const blocks = await db
-    .select({
-      id: workoutBlocks.id,
-      name: workoutBlocks.name,
-      type: workoutBlocks.type,
-      position: workoutBlocks.position,
-      rounds: workoutBlocks.rounds,
-    })
-    .from(workoutBlocks)
-    .where(eq(workoutBlocks.workoutId, id))
-    .orderBy(asc(workoutBlocks.position));
+  const [blocks, [feedback]] = await Promise.all([
+    db
+      .select({
+        id: workoutBlocks.id,
+        name: workoutBlocks.name,
+        type: workoutBlocks.type,
+        position: workoutBlocks.position,
+        rounds: workoutBlocks.rounds,
+      })
+      .from(workoutBlocks)
+      .where(eq(workoutBlocks.workoutId, id))
+      .orderBy(asc(workoutBlocks.position)),
+    db
+      .select({
+        difficulty: workoutFeedback.difficulty,
+        notes: workoutFeedback.notes,
+        createdAt: workoutFeedback.createdAt,
+      })
+      .from(workoutFeedback)
+      .where(eq(workoutFeedback.workoutId, id))
+      .limit(1),
+  ]);
 
   if (blocks.length === 0) {
-    return { ...workout, blocks: [] };
+    return { ...workout, feedback: feedback ?? null, blocks: [] };
   }
 
   const workoutExerciseRows = await db
@@ -244,6 +260,7 @@ export async function getWorkoutById(
 
   return {
     ...workout,
+    feedback: feedback ?? null,
     blocks: blocks.map((block) => ({
       ...block,
       exercises: exercisesByBlockId.get(block.id) ?? [],

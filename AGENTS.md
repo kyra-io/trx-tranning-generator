@@ -14,6 +14,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Keep the database schema in `lib/db/schema.ts`, the connection in `lib/db/index.ts`, and Drizzle configuration in `drizzle.config.ts`.
 - Keep Route Handlers thin, place reusable database reads in repositories under `lib/<feature>/`, and keep domain orchestration in feature services.
 - Keep workout generation in `lib/workouts/workout-generator.service.ts`; generators must return the complete persisted workout through `getWorkoutById()` so deterministic and future LLM implementations share the same API contract.
+- Keep workout completion in `lib/workouts/workout.service.ts`; update the workout and upsert its unique feedback in one Drizzle transaction, preserve an existing `completedAt`, and return the complete persisted workout through `getWorkoutById()`.
 - Persist workout aggregates (`workouts`, `workout_blocks`, and `workout_exercises`) in a single Drizzle transaction to prevent partial workouts.
 - Select API fields explicitly and transform Drizzle query results into clean response objects instead of returning raw join rows.
 - Use camelCase for TypeScript properties and snake_case for PostgreSQL table and column names.
