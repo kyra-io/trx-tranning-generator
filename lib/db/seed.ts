@@ -1,4 +1,5 @@
 import { loadEnvConfig } from '@next/env';
+import { sql } from 'drizzle-orm';
 
 loadEnvConfig(process.cwd());
 
@@ -28,12 +29,15 @@ async function seed() {
     { slug: 'quads', name: 'Quadriceps', bodyRegion: 'lower_body' },
     { slug: 'hamstrings', name: 'Hamstrings', bodyRegion: 'lower_body' },
     { slug: 'calves', name: 'Calves', bodyRegion: 'lower_body' },
-  ];
+  ].map((muscle) => ({ ...muscle, svgRegion: muscle.slug }));
 
   await db
     .insert(muscles)
     .values(muscleData)
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: muscles.slug,
+      set: { svgRegion: sql`excluded.svg_region` },
+    });
 
   console.log(`Seeded ${muscleData.length} muscles.`);
 }

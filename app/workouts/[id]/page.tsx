@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { MuscleHeatmap } from "@/components/muscles/muscle-heatmap";
 import { ExerciseThumbnail } from "@/components/workouts/exercise-thumbnail";
 import { WorkoutDetailActions } from "@/components/workouts/workout-detail-actions";
 import {
@@ -178,6 +179,16 @@ export default async function WorkoutDetailPage(
             : null
         }
       >
+        <section className="mt-8" aria-labelledby="muscle-focus-heading">
+          <h2
+            id="muscle-focus-heading"
+            className="mb-4 text-xl font-semibold tracking-tight text-zinc-900"
+          >
+            Muscle focus
+          </h2>
+          <MuscleHeatmap muscles={workout.muscleSummary} />
+        </section>
+
         <div className="mt-9 divide-y divide-zinc-200">
           {workout.blocks.map((block) => (
             <section key={block.id} className="py-7 first:pt-0">
