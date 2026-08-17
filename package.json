@@ -11,7 +11,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx lib/db/seed.ts",
-    "db:seed:exercise": "tsx lib/db/seed-exercise.ts"
+    "db:seed:exercise": "tsx lib/db/seed-exercise.ts",
+    "db:seed:workout": "tsx lib/db/seed-workout.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",

@@ -17,5 +17,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Use camelCase for TypeScript properties and snake_case for PostgreSQL table and column names.
 - Follow the existing schema style: explicit `varchar` lengths, timezone-aware timestamps, inline foreign keys, and generated UUID primary keys.
 - Generate migrations with `npm run db:generate`, inspect the generated SQL, then apply them with `npm run db:migrate`. Do not edit generated migrations without a concrete reason.
+- Keep standalone database seeds under `lib/db/`, load `.env` files with `@next/env` before importing the database connection, and make development fixtures idempotent.
+- Run `npm run db:seed:workout` to recreate the `Full Body Strength` development workout from exercises already present in the database.
 - Run `npm run lint` and `npx tsc --noEmit` after code or schema changes.
 - The local PostgreSQL service is defined in `docker-compose.yml`.
