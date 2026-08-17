@@ -102,6 +102,15 @@ export async function listWorkouts(): Promise<WorkoutSummary[]> {
     .orderBy(desc(workouts.createdAt));
 }
 
+export async function deleteWorkout(id: string): Promise<boolean> {
+  const deletedWorkouts = await db
+    .delete(workouts)
+    .where(eq(workouts.id, id))
+    .returning({ id: workouts.id });
+
+  return deletedWorkouts.length > 0;
+}
+
 export async function getWorkoutById(
   id: string,
 ): Promise<WorkoutDetail | null> {
