@@ -8,6 +8,13 @@
       "when": 1786961013249,
       "tag": "0000_motionless_moon_knight",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786966516078,
+      "tag": "0001_nosy_dazzler",
+      "breakpoints": true
     }
   ]
 }
