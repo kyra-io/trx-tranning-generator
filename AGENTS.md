@@ -12,6 +12,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 - This is a monolithic Next.js App Router application using PostgreSQL and Drizzle ORM.
 - Keep the database schema in `lib/db/schema.ts`, the connection in `lib/db/index.ts`, and Drizzle configuration in `drizzle.config.ts`.
+- Keep Route Handlers thin and place feature-specific database access in repositories under `lib/<feature>/`.
+- Select API fields explicitly and transform Drizzle query results into clean response objects instead of returning raw join rows.
 - Use camelCase for TypeScript properties and snake_case for PostgreSQL table and column names.
 - Follow the existing schema style: explicit `varchar` lengths, timezone-aware timestamps, inline foreign keys, and generated UUID primary keys.
 - Generate migrations with `npm run db:generate`, inspect the generated SQL, then apply them with `npm run db:migrate`. Do not edit generated migrations without a concrete reason.
