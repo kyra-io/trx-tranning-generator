@@ -25,3 +25,15 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Run `npm run db:seed:workout` to recreate the `Full Body Strength` development workout from exercises already present in the database.
 - Run `npm run lint` and `npx tsc --noEmit` after code or schema changes.
 - The local PostgreSQL service is defined in `docker-compose.yml`.
+
+# UI conventions
+
+- Build the interface mobile-first for 360px to 430px widths. On larger screens, keep the same mobile experience centered at a maximum width of 480px rather than introducing a dashboard or sidebar.
+- Keep the shared application shell in `app/layout.tsx`, including the fixed bottom navigation and safe-area spacing. Use real App Router routes for primary navigation instead of local tab state.
+- Keep reusable UI under `components/<feature>/`; extract components when they own meaningful behavior or are repeated, not for every small visual element.
+- Keep pages and layouts as Server Components by default. Add narrow Client Component boundaries only where state, event handlers, browser APIs, or client-side API requests require them.
+- Use Tailwind CSS v4 utilities for styling. Prefer zinc or stone backgrounds, white surfaces, zinc text and borders, with emerald as a restrained accent for primary actions and active states.
+- Preserve the light, neutral, functional visual language: no gradients, glass effects, heavy shadows, decorative animation, dark mode, or dense desktop-specific layouts unless explicitly requested.
+- Make touch targets at least 44px high, keep visible focus states and labels, and ensure selected controls expose a non-color state such as `aria-pressed` or `aria-current`.
+- Use simple inline SVG icons when the project has no icon library; do not add a dependency solely for a few navigation icons.
+- Reserve bottom content space for the fixed navigation and account for `safe-area-inset-top` and `safe-area-inset-bottom` on mobile devices.
