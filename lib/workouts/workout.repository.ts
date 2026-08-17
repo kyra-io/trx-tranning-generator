@@ -66,7 +66,7 @@ type WorkoutExercise = Pick<
   };
 };
 
-type WorkoutDetail = WorkoutSummary & {
+export type WorkoutDetail = WorkoutSummary & {
   feedback: Pick<
     typeof workoutFeedback.$inferSelect,
     'difficulty' | 'notes' | 'createdAt'
