@@ -33,6 +33,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Keep the shared application shell in `app/layout.tsx`, including the fixed bottom navigation and safe-area spacing. Use real App Router routes for primary navigation instead of local tab state.
 - Keep reusable UI under `components/<feature>/`; extract components when they own meaningful behavior or are repeated, not for every small visual element.
 - Keep pages and layouts as Server Components by default. Add narrow Client Component boundaries only where state, event handlers, browser APIs, or client-side API requests require them.
+- Keep the Generate page server-rendered and generation form state in `components/generate/workout-generator-form.tsx`; reuse the workout generator domain input types when constructing requests to `POST /api/workouts/generate`.
+- After successful generation, navigate directly to `/workouts/<id>` from the returned persisted workout. Keep the form values during requests and errors, prevent duplicate submissions, and expose pending and error states accessibly.
 - Keep workout detail content server-rendered; isolate completion, feedback, deletion, and image-error fallback behavior in narrow Client Components under `components/workouts/`.
 - Display persisted enum-like values with human-readable labels and never expose underscores in the UI.
 - For exercise thumbnails, use the first non-empty persisted image URL and preserve the same neutral placeholder dimensions when no image exists or loading fails. Do not invent external images.

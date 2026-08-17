@@ -1,8 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 
 import { OptionGroup } from "@/components/generate/option-group";
+import type {
+  GenerateWorkoutInput,
+  WorkoutFocus,
+  WorkoutGoal,
+  WorkoutLevel,
+} from "@/lib/workouts/workout-generator.service";
 
 const goals = [
   { label: "Strength", value: "strength" },
@@ -28,20 +35,96 @@ const focuses = [
   { label: "Core", value: "core" },
 ] as const;
 
+const safeGenerationErrors = new Set([
+  "No exercises available",
+  "No compatible exercises available",
+]);
+
 export function WorkoutGeneratorForm() {
-  const [goal, setGoal] = useState("strength");
+  const router = useRouter();
+  const submissionInFlight = useRef(false);
+  const [goal, setGoal] = useState<WorkoutGoal>("strength");
   const [duration, setDuration] = useState("30");
-  const [level, setLevel] = useState("intermediate");
-  const [focus, setFocus] = useState("full_body");
+  const [level, setLevel] = useState<WorkoutLevel>("intermediate");
+  const [focus, setFocus] = useState<WorkoutFocus>("full_body");
   const [intensity, setIntensity] = useState(6);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (submissionInFlight.current) {
+      return;
+    }
+
+    submissionInFlight.current = true;
+    setIsGenerating(true);
+    setError(null);
+
+    const input: GenerateWorkoutInput = {
+      goal,
+      durationMinutes: Number(duration),
+      level,
+      focus,
+      intensity,
+    };
+    let isNavigating = false;
+
+    try {
+      const response = await fetch("/api/workouts/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const result = (await response.json().catch(() => null)) as {
+        id?: unknown;
+        error?: unknown;
+      } | null;
+
+      if (!response.ok) {
+        if (response.status === 400) {
+          setError("Please check your workout preferences.");
+        } else if (
+          response.status === 422 &&
+          typeof result?.error === "string" &&
+          safeGenerationErrors.has(result.error)
+        ) {
+          setError(result.error);
+        } else {
+          setError("Could not generate workout. Please try again.");
+        }
+
+        return;
+      }
+
+      if (typeof result?.id !== "string" || result.id.length === 0) {
+        throw new Error("Generated workout response is missing an id");
+      }
+
+      router.push(`/workouts/${encodeURIComponent(result.id)}`);
+      isNavigating = true;
+    } catch {
+      setError("Could not generate workout. Please try again.");
+    } finally {
+      if (!isNavigating) {
+        submissionInFlight.current = false;
+        setIsGenerating(false);
+      }
+    }
+  }
 
   return (
-    <form className="space-y-7">
+    <form
+      className="space-y-7"
+      onSubmit={handleSubmit}
+      aria-busy={isGenerating}
+    >
       <OptionGroup
         label="Goal"
         options={goals}
         value={goal}
-        onChange={setGoal}
+        onChange={(value) => setGoal(value as WorkoutGoal)}
         columns={3}
       />
       <OptionGroup
@@ -55,14 +138,14 @@ export function WorkoutGeneratorForm() {
         label="Level"
         options={levels}
         value={level}
-        onChange={setLevel}
+        onChange={(value) => setLevel(value as WorkoutLevel)}
         columns={3}
       />
       <OptionGroup
         label="Focus"
         options={focuses}
         value={focus}
-        onChange={setFocus}
+        onChange={(value) => setFocus(value as WorkoutFocus)}
         columns={2}
       />
 
@@ -100,12 +183,23 @@ export function WorkoutGeneratorForm() {
         </div>
       </div>
 
-      {/* Generation will be connected to the existing API in a later phase. */}
+      {error ? (
+        <p
+          id="generation-error"
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
+          {error}
+        </p>
+      ) : null}
+
       <button
-        type="button"
-        className="min-h-13 w-full rounded-xl bg-emerald-700 px-5 py-3.5 text-base font-semibold text-white outline-none transition-colors hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 active:bg-emerald-900"
+        type="submit"
+        disabled={isGenerating}
+        aria-describedby={error ? "generation-error" : undefined}
+        className="min-h-13 w-full rounded-xl bg-emerald-700 px-5 py-3.5 text-base font-semibold text-white outline-none transition-colors hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 active:bg-emerald-900 disabled:cursor-wait disabled:opacity-60"
       >
-        Generate workout
+        {isGenerating ? "Generating..." : "Generate workout"}
       </button>
     </form>
   );
