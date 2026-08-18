@@ -19,9 +19,12 @@ type ExerciseSeed = {
   difficulty: 1 | 2 | 3;
   unilateral: boolean;
   instructions: string;
+  sourceName?: string;
   sourceUrl: string | null;
   muscles: MuscleMapping[];
 };
+
+const FREE_EXERCISE_DB_URL = 'https://github.com/yuhonas/free-exercise-db';
 
 const m = (
   slug: string,
@@ -59,6 +62,13 @@ const catalog: ExerciseSeed[] = [
     instructions: 'Face the anchor holding one handle and rotate the free arm toward the floor. Pull strongly with the working arm while rotating your free arm up toward the anchor. Reverse the rotation under control to return to the extended position.',
     sourceUrl: 'https://www.trxtraining.com/blogs/news/trx-power-pull',
     muscles: [m('lats', 'primary', 1), m('upper-back', 'primary', 0.9), m('obliques', 'secondary', 0.7), m('biceps', 'secondary', 0.6), m('rear-delts', 'secondary', 0.5), m('abs', 'stabilizer', 0.4)],
+  },
+  {
+    slug: 'trx-one-arm-row', name: 'TRX One-Arm Row', family: 'row', primaryPattern: 'pull', difficulty: 2, unilateral: true,
+    instructions: 'Face the anchor and hold one handle with your working arm straight. Keep your hips square as you pull your ribs toward the handle. Extend your arm slowly to return to the starting lean, then repeat on the other side.',
+    sourceName: 'free-exercise-db reference',
+    sourceUrl: FREE_EXERCISE_DB_URL,
+    muscles: [m('lats', 'primary', 1), m('upper-back', 'primary', 0.8), m('biceps', 'secondary', 0.7), m('rear-delts', 'secondary', 0.5), m('obliques', 'stabilizer', 0.5), m('abs', 'stabilizer', 0.4)],
   },
   {
     slug: 'trx-face-pull', name: 'TRX Face Pull', family: 'row', primaryPattern: 'pull', difficulty: 2, unilateral: false,
@@ -109,6 +119,34 @@ const catalog: ExerciseSeed[] = [
     muscles: [m('chest', 'primary', 0.9), m('abs', 'primary', 1), m('triceps', 'secondary', 0.7), m('front-delts', 'secondary', 0.6), m('quads', 'secondary', 0.5), m('glutes', 'stabilizer', 0.3)],
   },
   {
+    slug: 'trx-push-up-side-plank', name: 'TRX Push-Up to Side Plank', family: 'press', primaryPattern: 'push', difficulty: 3, unilateral: false,
+    instructions: 'Start in a high plank with both feet in the cradles and perform one controlled push-up. Shift onto one hand and rotate into a side plank as your free arm reaches upward. Return to a square plank before alternating sides.',
+    sourceName: 'free-exercise-db reference',
+    sourceUrl: FREE_EXERCISE_DB_URL,
+    muscles: [m('chest', 'primary', 0.9), m('obliques', 'primary', 0.9), m('triceps', 'secondary', 0.7), m('front-delts', 'secondary', 0.7), m('abs', 'stabilizer', 0.6), m('glutes', 'stabilizer', 0.4)],
+  },
+  {
+    slug: 'trx-clock-push-up', name: 'TRX Clock Push-Up', family: 'press', primaryPattern: 'push', difficulty: 3, unilateral: false,
+    instructions: 'Begin in a high plank with both feet suspended and your body braced. Perform a push-up, then walk your hands a small step around the anchor point without twisting your hips. Repeat in controlled increments and reverse direction to return.',
+    sourceName: 'free-exercise-db reference',
+    sourceUrl: FREE_EXERCISE_DB_URL,
+    muscles: [m('chest', 'primary', 1), m('triceps', 'primary', 0.8), m('front-delts', 'secondary', 0.8), m('abs', 'stabilizer', 0.6), m('obliques', 'stabilizer', 0.5), m('glutes', 'stabilizer', 0.4)],
+  },
+  {
+    slug: 'trx-close-grip-push-up', name: 'TRX Close-Grip Push-Up', family: 'press', primaryPattern: 'push', difficulty: 3, unilateral: false,
+    instructions: 'Place both feet in the cradles and set your hands slightly narrower than shoulder width. Keep your elbows close as you lower your chest with a rigid trunk. Press through the floor to return to a stable high plank.',
+    sourceName: 'free-exercise-db reference',
+    sourceUrl: FREE_EXERCISE_DB_URL,
+    muscles: [m('triceps', 'primary', 0.9), m('chest', 'primary', 0.8), m('front-delts', 'secondary', 0.5), m('abs', 'stabilizer', 0.4), m('glutes', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'trx-chest-fly', name: 'TRX Chest Fly', family: 'press', primaryPattern: 'push', difficulty: 2, unilateral: false,
+    instructions: 'Face away from the anchor with straight arms in front and a firm forward lean. Open your arms in a controlled arc while keeping a soft bend in the elbows. Squeeze your chest to bring the handles together and return upright.',
+    sourceName: 'free-exercise-db reference',
+    sourceUrl: FREE_EXERCISE_DB_URL,
+    muscles: [m('chest', 'primary', 1), m('front-delts', 'secondary', 0.6), m('biceps', 'stabilizer', 0.3), m('abs', 'stabilizer', 0.4)],
+  },
+  {
     slug: 'trx-squat', name: 'TRX Squat', family: 'squat', primaryPattern: 'squat', difficulty: 1, unilateral: false,
     instructions: 'Face the anchor with light tension in the straps and feet around shoulder width. Sit your hips down and back while keeping your chest lifted. Drive through your feet to stand tall again.',
     sourceUrl: 'https://www.trxtraining.com/blogs/news/trx-squat',
@@ -119,6 +157,20 @@ const catalog: ExerciseSeed[] = [
     instructions: 'Face the anchor with straight arms and lower into a supported squat. Stand as you pull your chest toward the handles, finishing with elbows behind you. Extend your arms and sit back into the next squat.',
     sourceUrl: null,
     muscles: [m('quads', 'primary', 0.9), m('lats', 'primary', 0.8), m('glutes', 'secondary', 0.7), m('upper-back', 'secondary', 0.7), m('biceps', 'secondary', 0.5), m('abs', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'trx-jump-squat', name: 'TRX Jump Squat', family: 'squat', primaryPattern: 'squat', difficulty: 2, unilateral: false,
+    instructions: 'Face the anchor with light strap tension and lower into a balanced squat. Drive through both feet into a vertical jump while using the handles only for control. Land softly, regain tension, and flow into the next squat.',
+    sourceName: 'free-exercise-db reference',
+    sourceUrl: FREE_EXERCISE_DB_URL,
+    muscles: [m('quads', 'primary', 1), m('glutes', 'primary', 0.9), m('hamstrings', 'secondary', 0.6), m('calves', 'secondary', 0.6), m('abs', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'trx-single-leg-squat', name: 'TRX Single-Leg Squat', family: 'squat', primaryPattern: 'squat', difficulty: 2, unilateral: true,
+    instructions: 'Face the anchor and balance on one leg with the other foot lifted. Sit your hips back and bend the standing knee while using only enough strap support to stay aligned. Drive through the planted foot to stand, then repeat on the other side.',
+    sourceName: 'free-exercise-db reference',
+    sourceUrl: FREE_EXERCISE_DB_URL,
+    muscles: [m('quads', 'primary', 1), m('glutes', 'primary', 0.9), m('hamstrings', 'secondary', 0.5), m('calves', 'stabilizer', 0.5), m('abs', 'stabilizer', 0.4)],
   },
   {
     slug: 'trx-lateral-lunge', name: 'TRX Lateral Lunge', family: 'lunge', primaryPattern: 'lunge', difficulty: 2, unilateral: true,
@@ -133,10 +185,24 @@ const catalog: ExerciseSeed[] = [
     muscles: [m('quads', 'primary', 1), m('glutes', 'primary', 0.9), m('hamstrings', 'secondary', 0.5), m('calves', 'stabilizer', 0.3), m('abs', 'stabilizer', 0.3)],
   },
   {
+    slug: 'trx-reverse-lunge', name: 'TRX Reverse Lunge', family: 'lunge', primaryPattern: 'lunge', difficulty: 1, unilateral: true,
+    instructions: 'Face the anchor with light tension in the straps and feet together. Step one foot back and lower that knee while keeping most of your weight over the front foot. Push through the front leg to return, then alternate sides.',
+    sourceName: 'free-exercise-db reference',
+    sourceUrl: FREE_EXERCISE_DB_URL,
+    muscles: [m('quads', 'primary', 1), m('glutes', 'primary', 0.9), m('hamstrings', 'secondary', 0.6), m('calves', 'stabilizer', 0.4), m('abs', 'stabilizer', 0.3)],
+  },
+  {
     slug: 'trx-hamstring-curl', name: 'TRX Hamstring Curl', family: 'curl', primaryPattern: 'hinge', difficulty: 2, unilateral: false,
     instructions: 'Lie on your back with both heels in the cradles and lift your hips. Bend your knees to draw your heels toward your body while keeping your hips elevated. Extend your legs slowly to return.',
     sourceUrl: 'https://www.trxtraining.com/blogs/news/trx-hamstring-curl',
     muscles: [m('hamstrings', 'primary', 1), m('glutes', 'primary', 0.8), m('calves', 'secondary', 0.5), m('lower-back', 'stabilizer', 0.3), m('abs', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'trx-single-leg-hamstring-curl', name: 'TRX Single-Leg Hamstring Curl', family: 'curl', primaryPattern: 'hinge', difficulty: 3, unilateral: true,
+    instructions: 'Lie on your back with one heel in a cradle, the free leg lifted, and your hips raised. Pull the suspended heel toward you without letting your pelvis rotate. Extend the working leg slowly, then change sides after the set.',
+    sourceName: 'free-exercise-db reference',
+    sourceUrl: FREE_EXERCISE_DB_URL,
+    muscles: [m('hamstrings', 'primary', 1), m('glutes', 'primary', 0.9), m('calves', 'secondary', 0.5), m('abs', 'stabilizer', 0.5), m('lower-back', 'stabilizer', 0.3)],
   },
   {
     slug: 'trx-wide-hip-hinge', name: 'TRX Wide Hip Hinge', family: 'hinge', primaryPattern: 'hinge', difficulty: 2, unilateral: false,
@@ -149,6 +215,13 @@ const catalog: ExerciseSeed[] = [
     instructions: 'Place both feet in the cradles and set your forearms or hands beneath your shoulders. Hold a straight line from head to heels while bracing your abdomen and glutes. Finish by lowering your knees with control.',
     sourceUrl: 'https://www.trxtraining.com/blogs/news/trx-weekly-exercise-trx-plank',
     muscles: [m('abs', 'primary', 1), m('obliques', 'secondary', 0.7), m('front-delts', 'secondary', 0.5), m('glutes', 'stabilizer', 0.4), m('lower-back', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'trx-body-saw', name: 'TRX Body Saw', family: 'plank', primaryPattern: 'plank', difficulty: 2, unilateral: false,
+    instructions: 'Set both feet in the cradles and hold a forearm plank with your body straight. Glide your body backward from the shoulders while maintaining a firm abdominal brace. Pull forward under control until your shoulders return above your elbows.',
+    sourceName: 'free-exercise-db reference',
+    sourceUrl: FREE_EXERCISE_DB_URL,
+    muscles: [m('abs', 'primary', 1), m('lats', 'secondary', 0.7), m('front-delts', 'secondary', 0.6), m('obliques', 'stabilizer', 0.5), m('glutes', 'stabilizer', 0.4), m('lower-back', 'stabilizer', 0.3)],
   },
   {
     slug: 'trx-side-plank', name: 'TRX Side Plank', family: 'plank', primaryPattern: 'plank', difficulty: 2, unilateral: true,
@@ -210,13 +283,13 @@ async function seedExercises() {
     let createdMappings = 0;
 
     for (const exerciseData of catalog) {
-      const { muscles: muscleData, ...values } = exerciseData;
+      const { muscles: muscleData, sourceName = 'TRX Training', ...values } = exerciseData;
       const [exercise] = await tx
         .insert(exercises)
-        .values({ ...values, sourceName: 'TRX Training' })
+        .values({ ...values, sourceName })
         .onConflictDoUpdate({
           target: exercises.slug,
-          set: { ...values, sourceName: 'TRX Training', updatedAt: new Date() },
+          set: { ...values, sourceName, updatedAt: new Date() },
         })
         .returning({ id: exercises.id });
 

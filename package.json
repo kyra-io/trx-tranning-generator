@@ -8,6 +8,7 @@
     "start": "next start",
     "test": "tsx --test lib/**/*.test.ts components/**/*.test.tsx",
     "lint": "eslint",
+    "analyze:free-exercise-db": "tsx scripts/analyze-free-exercise-db.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
