@@ -1,5 +1,6 @@
 import { asc, eq, inArray } from 'drizzle-orm';
 
+import { generateStructuredCompletion } from '@/lib/ai/openrouter.service';
 import { db } from '@/lib/db';
 import {
   exerciseMuscles,
@@ -9,6 +10,12 @@ import {
   workoutExercises,
   workouts,
 } from '@/lib/db/schema';
+import {
+  type GeneratedWorkout,
+  generatedWorkoutJsonSchema,
+  generatedWorkoutSchema,
+  validateGeneratedWorkoutBusinessRules,
+} from '@/lib/workouts/generated-workout';
 import { getWorkoutById } from '@/lib/workouts/workout.repository';
 
 export type WorkoutGoal =
@@ -44,6 +51,7 @@ type CatalogExercise = Pick<
     slug: string;
     bodyRegion: string | null;
     role: string;
+    activation: number;
   }>;
 };
 
@@ -266,7 +274,7 @@ function getWorkoutName(goal: WorkoutGoal, focus: WorkoutFocus) {
   return `${focusNames[focus]} ${goalNames[goal]}`;
 }
 
-export async function generateWorkout(input: GenerateWorkoutInput) {
+async function loadCompatibleExercises(input: GenerateWorkoutInput) {
   const catalogRows = await db
     .select({
       id: exercises.id,
@@ -304,6 +312,7 @@ export async function generateWorkout(input: GenerateWorkoutInput) {
       slug: muscles.slug,
       bodyRegion: muscles.bodyRegion,
       role: exerciseMuscles.role,
+      activation: exerciseMuscles.activation,
     })
     .from(exerciseMuscles)
     .innerJoin(muscles, eq(exerciseMuscles.muscleId, muscles.id))
@@ -317,6 +326,7 @@ export async function generateWorkout(input: GenerateWorkoutInput) {
       slug: muscle.slug,
       bodyRegion: muscle.bodyRegion,
       role: muscle.role,
+      activation: Number(muscle.activation),
     });
     musclesByExerciseId.set(muscle.exerciseId, exerciseMuscleList);
   }
@@ -325,6 +335,14 @@ export async function generateWorkout(input: GenerateWorkoutInput) {
     ...exercise,
     muscles: musclesByExerciseId.get(exercise.id) ?? [],
   }));
+
+  return compatibleExercises;
+}
+
+function generateDeterministicPlan(
+  input: GenerateWorkoutInput,
+  compatibleExercises: CatalogExercise[],
+): GeneratedWorkout {
   const selectedExercises = selectExercises(
     compatibleExercises,
     input.focus,
@@ -351,57 +369,126 @@ export async function generateWorkout(input: GenerateWorkoutInput) {
   };
   const estimatedDurationMinutes = estimateDurationMinutes(generatedItems);
 
+  return {
+    name: getWorkoutName(input.goal, input.focus),
+    estimatedDurationMinutes,
+    blocks: [
+      { name: 'Warm-up', type: 'warm_up', rounds: 1, items: blockItems.warm_up },
+      { name: 'Main', type: 'main', rounds: 1, items: blockItems.main },
+      { name: 'Core', type: 'core', rounds: 1, items: blockItems.core },
+    ].map(({ name, type, rounds, items }) => ({
+      name,
+      type,
+      rounds,
+      exercises: items.map(({ exercise, prescription }) => ({
+        exerciseId: exercise.id,
+        sets: prescription.sets,
+        reps: prescription.reps ?? null,
+        repsPerSide: exercise.unilateral,
+        durationSeconds: prescription.durationSeconds ?? null,
+        restSeconds: prescription.restSeconds,
+        notes: null,
+      })),
+    })),
+  };
+}
+
+function buildWorkoutPrompts(
+  input: GenerateWorkoutInput,
+  compatibleExercises: CatalogExercise[],
+) {
+  const systemPrompt = `You are a TRX workout planner working with a closed exercise catalog.
+You must only use exercises from the provided exercise catalog. Never invent exercises or exercise IDs.
+Return only data matching the supplied JSON schema, without explanations.
+Use each exercise at most once and do not prescribe equipment other than TRX.
+Respect the requested goal, level, focus, intensity, and approximate duration. The estimated duration must be within 5 minutes of the requested duration.
+For full_body workouts, balance upper-body push and pull, lower-body, and core movements when the catalog permits.
+Use practical blocks such as warm_up, main, and core. Use 1-10 rounds. Every exercise needs 1-10 sets or null, either 1-100 reps or 5-600 durationSeconds, and 0-300 restSeconds or null.
+Keep names and notes concise. Set repsPerSide appropriately for unilateral work.`;
+  const catalog = compatibleExercises.map((exercise) => ({
+    id: exercise.id,
+    name: exercise.name,
+    primaryPattern: exercise.primaryPattern,
+    family: exercise.family,
+    difficulty: exercise.difficulty,
+    unilateral: exercise.unilateral,
+    muscles: exercise.muscles.map(({ slug, role, activation }) => ({
+      slug,
+      role,
+      activation,
+    })),
+  }));
+
+  return {
+    systemPrompt,
+    userPrompt: JSON.stringify({ preferences: input, exerciseCatalog: catalog }),
+  };
+}
+
+async function generateOpenRouterPlan(
+  input: GenerateWorkoutInput,
+  compatibleExercises: CatalogExercise[],
+) {
+  const prompts = buildWorkoutPrompts(input, compatibleExercises);
+  const completion = await generateStructuredCompletion({
+    ...prompts,
+    schemaName: 'trx_workout',
+    jsonSchema: generatedWorkoutJsonSchema,
+  });
+  const workout = generatedWorkoutSchema.parse(completion.data);
+
+  validateGeneratedWorkoutBusinessRules(
+    workout,
+    new Set(compatibleExercises.map(({ id }) => id)),
+    input.durationMinutes,
+  );
+
+  return { workout, model: completion.model };
+}
+
+async function persistGeneratedWorkout(
+  input: GenerateWorkoutInput,
+  generatedWorkout: GeneratedWorkout,
+) {
   const workoutId = await db.transaction(async (tx) => {
     const [workout] = await tx
       .insert(workouts)
       .values({
-        name: getWorkoutName(input.goal, input.focus),
+        name: generatedWorkout.name,
         goal: input.goal,
         level: input.level,
         focus: input.focus,
         requestedDurationMinutes: input.durationMinutes,
-        estimatedDurationMinutes,
+        estimatedDurationMinutes: generatedWorkout.estimatedDurationMinutes,
         status: 'generated',
       })
       .returning({ id: workouts.id });
     const blocks = await tx
       .insert(workoutBlocks)
-      .values([
-        {
+      .values(
+        generatedWorkout.blocks.map((block, index) => ({
           workoutId: workout.id,
-          name: 'Warm-up',
-          type: 'warm_up',
-          position: 1,
-          rounds: 1,
-        },
-        {
-          workoutId: workout.id,
-          name: 'Main',
-          type: 'main',
-          position: 2,
-          rounds: 1,
-        },
-        {
-          workoutId: workout.id,
-          name: 'Core',
-          type: 'core',
-          position: 3,
-          rounds: 1,
-        },
-      ])
-      .returning({ id: workoutBlocks.id, type: workoutBlocks.type });
-    const blockByType = new Map(blocks.map((block) => [block.type, block.id]));
-    const exerciseValues = Object.entries(blockItems).flatMap(
-      ([blockType, items]) =>
-        items.map(({ exercise, prescription }, index) => ({
-          blockId: blockByType.get(blockType)!,
-          exerciseId: exercise.id,
+          name: block.name,
+          type: block.type,
           position: index + 1,
-          sets: prescription.sets,
-          reps: prescription.reps,
-          repsPerSide: exercise.unilateral,
-          durationSeconds: prescription.durationSeconds,
-          restSeconds: prescription.restSeconds,
+          rounds: block.rounds,
+        })),
+      )
+      .returning({ id: workoutBlocks.id, position: workoutBlocks.position });
+    const blockIdByPosition = new Map(
+      blocks.map((block) => [block.position, block.id]),
+    );
+    const exerciseValues = generatedWorkout.blocks.flatMap((block, blockIndex) =>
+      block.exercises.map((exercise, exerciseIndex) => ({
+          blockId: blockIdByPosition.get(blockIndex + 1)!,
+          exerciseId: exercise.exerciseId,
+          position: exerciseIndex + 1,
+          sets: exercise.sets,
+          reps: exercise.reps,
+          repsPerSide: exercise.repsPerSide,
+          durationSeconds: exercise.durationSeconds,
+          restSeconds: exercise.restSeconds,
+          notes: exercise.notes,
         })),
     );
 
@@ -413,6 +500,47 @@ export async function generateWorkout(input: GenerateWorkoutInput) {
 
   if (!workout) {
     throw new Error('Generated workout could not be loaded');
+  }
+
+  return workout;
+}
+
+function summarizeGenerationError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return 'unknown error';
+  }
+
+  return error.message.slice(0, 200);
+}
+
+export async function generateWorkout(input: GenerateWorkoutInput) {
+  const compatibleExercises = await loadCompatibleExercises(input);
+  let generatedWorkout: GeneratedWorkout;
+  let openRouterModel: string | null = null;
+
+  if (process.env.OPENROUTER_API_KEY) {
+    try {
+      const result = await generateOpenRouterPlan(input, compatibleExercises);
+      generatedWorkout = result.workout;
+      openRouterModel = result.model;
+    } catch (error) {
+      console.warn(
+        'OpenRouter generation failed, using deterministic fallback:',
+        summarizeGenerationError(error),
+      );
+      generatedWorkout = generateDeterministicPlan(input, compatibleExercises);
+    }
+  } else {
+    console.warn(
+      'OpenRouter generation failed, using deterministic fallback: API key not configured',
+    );
+    generatedWorkout = generateDeterministicPlan(input, compatibleExercises);
+  }
+
+  const workout = await persistGeneratedWorkout(input, generatedWorkout);
+
+  if (openRouterModel) {
+    console.info(`Workout generated using OpenRouter model: ${openRouterModel}`);
   }
 
   return workout;
