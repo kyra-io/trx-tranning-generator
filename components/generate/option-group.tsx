@@ -4,6 +4,7 @@ type Option = {
 };
 
 type OptionGroupProps = {
+  name: string;
   label: string;
   options: readonly Option[];
   value: string;
@@ -18,6 +19,7 @@ const columnClasses = {
 };
 
 export function OptionGroup({
+  name,
   label,
   options,
   value,
@@ -32,21 +34,27 @@ export function OptionGroup({
       <div className={`grid gap-2 ${columnClasses[columns]}`}>
         {options.map((option) => {
           const selected = option.value === value;
+          const id = `${name}-${option.value}`;
 
           return (
-            <button
+            <label
               key={option.value}
-              type="button"
-              aria-pressed={selected}
-              onClick={() => onChange(option.value)}
-              className={`min-h-11 rounded-xl border px-2.5 py-2 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 ${
-                selected
-                  ? "border-emerald-700 bg-emerald-50 text-emerald-900"
-                  : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300 hover:text-zinc-900"
-              }`}
+              htmlFor={id}
+              className="cursor-pointer rounded-xl outline-none focus-within:ring-2 focus-within:ring-emerald-700 focus-within:ring-offset-2"
             >
-              {option.label}
-            </button>
+              <input
+                id={id}
+                type="radio"
+                name={name}
+                value={option.value}
+                checked={selected}
+                onChange={() => onChange(option.value)}
+                className="peer sr-only"
+              />
+              <span className="flex min-h-11 items-center justify-center rounded-xl border border-zinc-200 bg-white px-2.5 py-2 text-center text-sm font-medium text-zinc-600 transition-colors peer-checked:border-emerald-700 peer-checked:bg-emerald-50 peer-checked:text-emerald-900">
+                {option.label}
+              </span>
+            </label>
           );
         })}
       </div>

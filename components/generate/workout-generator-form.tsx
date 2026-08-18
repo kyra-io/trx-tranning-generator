@@ -121,6 +121,7 @@ export function WorkoutGeneratorForm() {
       aria-busy={isGenerating}
     >
       <OptionGroup
+        name="workout-goal"
         label="Goal"
         options={goals}
         value={goal}
@@ -128,6 +129,7 @@ export function WorkoutGeneratorForm() {
         columns={3}
       />
       <OptionGroup
+        name="workout-duration"
         label="Duration"
         options={durations}
         value={duration}
@@ -135,6 +137,7 @@ export function WorkoutGeneratorForm() {
         columns={4}
       />
       <OptionGroup
+        name="workout-level"
         label="Level"
         options={levels}
         value={level}
@@ -142,6 +145,7 @@ export function WorkoutGeneratorForm() {
         columns={3}
       />
       <OptionGroup
+        name="workout-focus"
         label="Focus"
         options={focuses}
         value={focus}
