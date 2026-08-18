@@ -179,6 +179,10 @@ async function loadExerciseCatalog() {
       name: exercises.name,
       family: exercises.family,
       primaryPattern: exercises.primaryPattern,
+      force: exercises.force,
+      mechanic: exercises.mechanic,
+      category: exercises.category,
+      variationGroup: exercises.variationGroup,
       difficulty: exercises.difficulty,
       unilateral: exercises.unilateral,
     })
@@ -293,7 +297,10 @@ Keep names and notes concise. Set repsPerSide appropriately for unilateral work.
     id: exercise.id,
     name: exercise.name,
     primaryPattern: exercise.primaryPattern,
-    family: exercise.family,
+    force: exercise.force,
+    mechanic: exercise.mechanic,
+    category: exercise.category,
+    variationGroup: exercise.variationGroup,
     difficulty: exercise.difficulty,
     unilateral: exercise.unilateral,
     muscles: exercise.muscles.map(({ slug, role, activation }) => ({

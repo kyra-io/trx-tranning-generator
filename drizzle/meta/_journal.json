@@ -15,6 +15,13 @@
       "when": 1786966516078,
       "tag": "0001_nosy_dazzler",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787059584722,
+      "tag": "0002_ordinary_scrambler",
+      "breakpoints": true
     }
   ]
 }

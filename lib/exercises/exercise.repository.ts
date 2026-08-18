@@ -15,6 +15,10 @@ export type ExerciseDetail = Pick<
   | "name"
   | "family"
   | "primaryPattern"
+  | "force"
+  | "mechanic"
+  | "category"
+  | "variationGroup"
   | "difficulty"
   | "unilateral"
   | "instructions"
@@ -45,6 +49,10 @@ const exerciseFields = {
   name: exercises.name,
   family: exercises.family,
   primaryPattern: exercises.primaryPattern,
+  force: exercises.force,
+  mechanic: exercises.mechanic,
+  category: exercises.category,
+  variationGroup: exercises.variationGroup,
   difficulty: exercises.difficulty,
   unilateral: exercises.unilateral,
   instructions: exercises.instructions,

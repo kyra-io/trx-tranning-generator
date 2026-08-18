@@ -62,6 +62,10 @@ type WorkoutExercise = Pick<
     | 'name'
     | 'family'
     | 'primaryPattern'
+    | 'force'
+    | 'mechanic'
+    | 'category'
+    | 'variationGroup'
     | 'difficulty'
     | 'unilateral'
   > & {
@@ -208,6 +212,10 @@ export async function getWorkoutById(
       exerciseName: exercises.name,
       exerciseFamily: exercises.family,
       exercisePrimaryPattern: exercises.primaryPattern,
+      exerciseForce: exercises.force,
+      exerciseMechanic: exercises.mechanic,
+      exerciseCategory: exercises.category,
+      exerciseVariationGroup: exercises.variationGroup,
       exerciseDifficulty: exercises.difficulty,
       exerciseUnilateral: exercises.unilateral,
     })
@@ -299,6 +307,10 @@ export async function getWorkoutById(
         name: row.exerciseName,
         family: row.exerciseFamily,
         primaryPattern: row.exercisePrimaryPattern,
+        force: row.exerciseForce,
+        mechanic: row.exerciseMechanic,
+        category: row.exerciseCategory,
+        variationGroup: row.exerciseVariationGroup,
         difficulty: row.exerciseDifficulty,
         unilateral: row.exerciseUnilateral,
         images: imagesByExerciseId.get(row.exerciseId) ?? [],

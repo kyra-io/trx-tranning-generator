@@ -24,6 +24,13 @@ type ExerciseSeed = {
   muscles: MuscleMapping[];
 };
 
+type ExerciseMetadata = {
+  force: 'push' | 'pull' | 'static' | 'mixed';
+  mechanic: 'compound' | 'isolation';
+  category: 'strength' | 'core' | 'conditioning' | 'mobility';
+  variationGroup: string;
+};
+
 const FREE_EXERCISE_DB_URL = 'https://github.com/yuhonas/free-exercise-db';
 
 const m = (
@@ -255,6 +262,46 @@ const catalog: ExerciseSeed[] = [
   },
 ];
 
+// Metadata belongs to the local TRX catalog. Keeping it keyed by slug makes
+// completeness reviewable and prevents a partial seed when the catalog grows.
+const metadataBySlug = {
+  'trx-row': { force: 'pull', mechanic: 'compound', category: 'strength', variationGroup: 'row' },
+  'trx-low-row': { force: 'pull', mechanic: 'compound', category: 'strength', variationGroup: 'row' },
+  'trx-mid-row': { force: 'pull', mechanic: 'compound', category: 'strength', variationGroup: 'row' },
+  'trx-high-row': { force: 'pull', mechanic: 'compound', category: 'strength', variationGroup: 'row' },
+  'trx-power-pull': { force: 'mixed', mechanic: 'compound', category: 'strength', variationGroup: 'power-pull' },
+  'trx-one-arm-row': { force: 'pull', mechanic: 'compound', category: 'strength', variationGroup: 'one-arm-row' },
+  'trx-face-pull': { force: 'pull', mechanic: 'compound', category: 'strength', variationGroup: 'face-pull' },
+  'trx-y-raise': { force: 'pull', mechanic: 'isolation', category: 'strength', variationGroup: 'y-raise' },
+  'trx-t-delt-fly': { force: 'pull', mechanic: 'isolation', category: 'strength', variationGroup: 'reverse-fly' },
+  'trx-biceps-curl': { force: 'pull', mechanic: 'isolation', category: 'strength', variationGroup: 'biceps-curl' },
+  'trx-chest-press': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'chest-press' },
+  'trx-triceps-press': { force: 'push', mechanic: 'isolation', category: 'strength', variationGroup: 'triceps-press' },
+  'trx-push-up': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'push-up' },
+  'trx-atomic-push-up': { force: 'mixed', mechanic: 'compound', category: 'conditioning', variationGroup: 'atomic-push-up' },
+  'trx-push-up-side-plank': { force: 'mixed', mechanic: 'compound', category: 'core', variationGroup: 'push-up-side-plank' },
+  'trx-clock-push-up': { force: 'push', mechanic: 'compound', category: 'conditioning', variationGroup: 'clock-push-up' },
+  'trx-close-grip-push-up': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'close-grip-push-up' },
+  'trx-chest-fly': { force: 'push', mechanic: 'isolation', category: 'strength', variationGroup: 'chest-fly' },
+  'trx-squat': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'squat' },
+  'trx-squat-row': { force: 'mixed', mechanic: 'compound', category: 'strength', variationGroup: 'squat-row' },
+  'trx-jump-squat': { force: 'push', mechanic: 'compound', category: 'conditioning', variationGroup: 'jump-squat' },
+  'trx-single-leg-squat': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'single-leg-squat' },
+  'trx-lateral-lunge': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'lateral-lunge' },
+  'trx-split-squat': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'split-squat' },
+  'trx-reverse-lunge': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'reverse-lunge' },
+  'trx-hamstring-curl': { force: 'pull', mechanic: 'isolation', category: 'strength', variationGroup: 'hamstring-curl' },
+  'trx-single-leg-hamstring-curl': { force: 'pull', mechanic: 'isolation', category: 'strength', variationGroup: 'single-leg-hamstring-curl' },
+  'trx-wide-hip-hinge': { force: 'pull', mechanic: 'compound', category: 'mobility', variationGroup: 'wide-hip-hinge' },
+  'trx-plank': { force: 'static', mechanic: 'compound', category: 'core', variationGroup: 'plank' },
+  'trx-body-saw': { force: 'mixed', mechanic: 'compound', category: 'core', variationGroup: 'body-saw' },
+  'trx-side-plank': { force: 'static', mechanic: 'compound', category: 'core', variationGroup: 'side-plank' },
+  'trx-pike': { force: 'mixed', mechanic: 'compound', category: 'core', variationGroup: 'pike' },
+  'trx-mountain-climbers': { force: 'mixed', mechanic: 'compound', category: 'conditioning', variationGroup: 'mountain-climber' },
+  'trx-standing-rollout': { force: 'static', mechanic: 'compound', category: 'core', variationGroup: 'rollout' },
+  'trx-torso-rotation': { force: 'pull', mechanic: 'compound', category: 'core', variationGroup: 'torso-rotation' },
+} satisfies Record<string, ExerciseMetadata>;
+
 async function seedExercises() {
   const { db } = await import('./index');
   const { exerciseMuscles, exercises, muscles } = await import('./schema');
@@ -284,12 +331,18 @@ async function seedExercises() {
 
     for (const exerciseData of catalog) {
       const { muscles: muscleData, sourceName = 'TRX Training', ...values } = exerciseData;
+      const metadata = metadataBySlug[exerciseData.slug as keyof typeof metadataBySlug];
+
+      if (!metadata) {
+        throw new Error(`Cannot seed exercise catalog. Missing metadata for ${exerciseData.slug}`);
+      }
+
       const [exercise] = await tx
         .insert(exercises)
-        .values({ ...values, sourceName })
+        .values({ ...values, ...metadata, sourceName })
         .onConflictDoUpdate({
           target: exercises.slug,
-          set: { ...values, sourceName, updatedAt: new Date() },
+          set: { ...values, ...metadata, sourceName, updatedAt: new Date() },
         })
         .returning({ id: exercises.id });
 

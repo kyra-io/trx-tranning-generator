@@ -14,6 +14,10 @@ const catalog: CandidateExercise[] = Array.from({ length: 21 }, (_, index) => ({
   name: `Exercise ${index}`,
   family: index < 4 ? 'row' : patterns[index % patterns.length],
   primaryPattern: patterns[index % patterns.length],
+  force: ['pull', 'push', 'static', 'mixed'][index % 4],
+  mechanic: index % 4 === 0 ? 'isolation' : 'compound',
+  category: index % 5 === 0 ? 'conditioning' : 'strength',
+  variationGroup: index < 4 ? 'row' : `move-${index}`,
   difficulty: (index % 3) + 1,
   unilateral: false,
   muscles: [{ slug: `muscle-${index % 6}`, bodyRegion: null, role: 'primary', activation: 1 }],
@@ -35,11 +39,15 @@ function seededRandom(seed: number) {
   };
 }
 
-test('derives close row variants without collapsing unrelated presses', () => {
-  assert.equal(getVariationGroup({ slug: 'trx-low-row', family: 'row' }), 'row');
+test('uses persisted variation metadata without collapsing by family', () => {
+  assert.equal(getVariationGroup({ id: 'low-row', variationGroup: 'row' }), 'row');
   assert.notEqual(
-    getVariationGroup({ slug: 'trx-chest-press', family: 'press' }),
-    getVariationGroup({ slug: 'trx-push-up', family: 'press' }),
+    getVariationGroup({ id: 'chest-press', variationGroup: 'chest-press' }),
+    getVariationGroup({ id: 'push-up', variationGroup: 'push-up' }),
+  );
+  assert.notEqual(
+    getVariationGroup({ id: 'legacy-a', variationGroup: null }),
+    getVariationGroup({ id: 'legacy-b', variationGroup: null }),
   );
 });
 
@@ -61,4 +69,29 @@ test('weighted selection varies and strongly discourages the previous workout', 
 
   assert.ok(signatures.size > 1);
   assert.ok(pools.filter((pool) => pool.some(({ id }) => id === 'exercise-0')).length < pools.length);
+});
+
+test('goal metadata changes probabilities without becoming a hard filter', () => {
+  const runs = (goal: typeof input.goal | 'hypertrophy' | 'general_fitness') =>
+    Array.from({ length: 100 }, (_, seed) =>
+      selectWorkoutCandidates({
+        input: { ...input, goal },
+        catalog,
+        recentWorkouts: [],
+        random: seededRandom(seed + 100),
+      }),
+    ).flat();
+  const strength = runs('strength');
+  const hypertrophy = runs('hypertrophy');
+  const fitness = runs('general_fitness');
+
+  assert.ok(
+    hypertrophy.filter(({ mechanic }) => mechanic === 'isolation').length >=
+      strength.filter(({ mechanic }) => mechanic === 'isolation').length,
+  );
+  assert.ok(
+    fitness.filter(({ category }) => category === 'conditioning').length >=
+      strength.filter(({ category }) => category === 'conditioning').length,
+  );
+  assert.ok(fitness.some(({ category }) => category === 'strength'));
 });

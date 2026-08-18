@@ -20,6 +20,10 @@ export type CandidateExercise = {
   name: string;
   family: string | null;
   primaryPattern: string;
+  force: string | null;
+  mechanic: string | null;
+  category: string | null;
+  variationGroup: string | null;
   difficulty: number;
   unilateral: boolean;
   muscles: Array<{
@@ -38,7 +42,7 @@ export type RecentWorkoutUsage = {
 export type SelectedWorkoutCandidate = CandidateExercise & {
   score: number;
   recentCount: number;
-  variationGroup: string;
+  variationGroup: string | null;
 };
 
 type RandomSource = () => number;
@@ -56,24 +60,15 @@ const focusPatterns: Record<WorkoutFocus, string[]> = {
   core: ['plank', 'rotate'],
 };
 
-const accessoryTerms = ['curl', 'raise', 'fly', 'triceps', 'face-pull'];
-
 function normalize(value: string | null) {
   return value?.trim().toLowerCase().replaceAll('_', '-').replaceAll(' ', '-') ?? '';
 }
 
-/** Groups only close substitutes; broad families such as `press` stay split. */
-export function getVariationGroup(exercise: Pick<CandidateExercise, 'slug' | 'family'>) {
-  const slug = normalize(exercise.slug).replace(/^trx-/, '');
-
-  if (/^(row|low-row|mid-row|high-row)$/.test(slug)) return 'row';
-  if (/^(squat|single-leg-squat)$/.test(slug)) return 'squat';
-  if (/^(split-squat|reverse-lunge|forward-lunge)$/.test(slug)) return 'split-lunge';
-  if (/^(plank|body-saw)$/.test(slug)) return 'front-plank';
-
-  // Slug is the safe default: chest press, push-up, atomic push-up and
-  // accessory pulls should not collapse merely because their family matches.
-  return slug || normalize(exercise.family) || exercise.slug;
+/** Persisted metadata is authoritative; id only keeps legacy null rows distinct. */
+export function getVariationGroup(
+  exercise: Pick<CandidateExercise, 'id' | 'variationGroup'>,
+) {
+  return normalize(exercise.variationGroup) || `exercise:${exercise.id}`;
 }
 
 export function getCandidatePoolSize(durationMinutes: number) {
@@ -114,15 +109,49 @@ function historyStats(exerciseId: string, history: RecentWorkoutUsage[]) {
   };
 }
 
-function goalScore(exercise: CandidateExercise, goal: WorkoutGoal) {
-  const descriptor = `${normalize(exercise.slug)} ${normalize(exercise.family)}`;
-  const accessory = accessoryTerms.some((term) => descriptor.includes(term));
+function mechanicGoalFit(
+  exercise: CandidateExercise,
+  goal: WorkoutGoal,
+  selected: SelectedWorkoutCandidate[],
+) {
+  const mechanic = normalize(exercise.mechanic);
+  const mechanicIsNew = !selected.some(
+    (candidate) => normalize(candidate.mechanic) === mechanic,
+  );
 
-  if (goal === 'strength') return accessory ? 0 : 0.75;
-  if (goal === 'hypertrophy') return accessory ? 0.75 : 0.25;
-  return exercise.unilateral || ['rotate', 'lunge'].includes(normalize(exercise.primaryPattern))
-    ? 0.5
-    : 0.25;
+  if (goal === 'strength') return mechanic === 'compound' ? 0.75 : 0;
+  if (goal === 'hypertrophy') {
+    return (mechanicIsNew ? 0.75 : 0) + (mechanic === 'isolation' ? 0.5 : 0.25);
+  }
+  return mechanicIsNew ? 0.5 : 0;
+}
+
+function categoryGoalFit(exercise: CandidateExercise, input: WorkoutCandidateInput) {
+  const category = normalize(exercise.category);
+  let score = 0;
+
+  if (['strength', 'hypertrophy'].includes(input.goal) && category === 'strength') score += 0.75;
+  if (input.goal === 'general_fitness' && category === 'conditioning') score += 1.25;
+  if (input.focus === 'core' && category === 'core') score += 1.5;
+  return score;
+}
+
+function forceDiversityBonus(
+  exercise: CandidateExercise,
+  input: WorkoutCandidateInput,
+  selected: SelectedWorkoutCandidate[],
+) {
+  const force = normalize(exercise.force);
+  if (!force) return 0;
+  const selectedForces = new Set(selected.map((candidate) => normalize(candidate.force)));
+
+  if (input.focus === 'upper_body' && ['push', 'pull'].includes(force)) {
+    return selectedForces.has(force) ? 0 : 1;
+  }
+  if (input.focus === 'full_body' && ['push', 'pull', 'static', 'mixed'].includes(force)) {
+    return selectedForces.has(force) ? 0 : 0.75;
+  }
+  return 0;
 }
 
 function levelFitScore(exercise: CandidateExercise, input: WorkoutCandidateInput) {
@@ -139,8 +168,8 @@ function baseScore(
   const stats = historyStats(exercise.id, history);
   const focusMatch = focusPatterns[input.focus].includes(normalize(exercise.primaryPattern));
 
-  // Weights are deliberately legible: base 1, focus +3, novelty +2,
-  // exact level fit up to +1, goal fit up to +0.75. Recency costs -5 for
+  // Stable score: base 1, focus +3, novelty +2 and level fit up to +1.
+  // Goal/category/mechanic/force signals are added during sampling. Recency costs -5 for
   // the previous workout, -2 for each other use in workouts 2-3, -1 for
   // each use in workouts 4-5 and -0.25 for workouts 6-10.
   const noveltyBonus = stats.lastFiveCount === 0 ? 2 : 0;
@@ -155,8 +184,7 @@ function baseScore(
       1 +
         (focusMatch ? 3 : 0) +
         noveltyBonus +
-        levelFitScore(exercise, input) +
-        goalScore(exercise, input.goal) -
+        levelFitScore(exercise, input) -
         previousPenalty -
         lastThreePenalty -
         lastFivePenalty -
@@ -216,6 +244,33 @@ export function selectWorkoutCandidates({
   const selectedGroups = new Set<string>();
   const patterns = desiredPatternOrder(input.focus);
 
+  const selectionScore = (exercise: CandidateExercise, variationRelaxed: boolean) => {
+    const scored = baseScore(exercise, input, recentWorkouts).score;
+    const patternNeed = selected.some(
+      (candidate) => normalize(candidate.primaryPattern) === normalize(exercise.primaryPattern),
+    )
+      ? 0
+      : 2;
+    const similarityPenalty = selected.reduce(
+      (penalty, candidate) => Math.max(penalty, muscleSimilarity(exercise, candidate) * 1.5),
+      0,
+    );
+    const variationPenalty = variationRelaxed && selectedGroups.has(getVariationGroup(exercise))
+      ? 3
+      : 0;
+
+    return Math.max(
+      0.2,
+      scored +
+        patternNeed +
+        mechanicGoalFit(exercise, input.goal, selected) +
+        categoryGoalFit(exercise, input) +
+        forceDiversityBonus(exercise, input, selected) -
+        similarityPenalty -
+        variationPenalty,
+    );
+  };
+
   const choose = (
     pattern?: string,
     relaxVariation = false,
@@ -230,19 +285,7 @@ export function selectWorkoutCandidates({
 
     const picked = weightedSample(
       available,
-      (exercise) => {
-        const scored = baseScore(exercise, input, recentWorkouts).score;
-        const patternNeed = selected.some(
-          (candidate) => normalize(candidate.primaryPattern) === normalize(exercise.primaryPattern),
-        )
-          ? 0
-          : 2;
-        const similarityPenalty = selected.reduce(
-          (penalty, candidate) => Math.max(penalty, muscleSimilarity(exercise, candidate) * 1.5),
-          0,
-        );
-        return Math.max(0.2, scored + patternNeed - similarityPenalty);
-      },
+      (exercise) => selectionScore(exercise, relaxVariation),
       random,
     );
     if (!picked) return false;
@@ -250,7 +293,7 @@ export function selectWorkoutCandidates({
     const scored = baseScore(picked, input, recentWorkouts);
     selected.push({
       ...picked,
-      score: Number(scored.score.toFixed(2)),
+      score: Number(selectionScore(picked, relaxVariation).toFixed(2)),
       recentCount: scored.recentCount,
       variationGroup: getVariationGroup(picked),
     });

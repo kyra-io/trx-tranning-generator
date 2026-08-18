@@ -18,6 +18,10 @@ export const exercises = pgTable('exercises', {
 
   family: varchar('family', { length: 100 }),
   primaryPattern: varchar('primary_pattern', { length: 50 }).notNull(),
+  force: varchar('force', { length: 20 }),
+  mechanic: varchar('mechanic', { length: 20 }),
+  category: varchar('category', { length: 30 }),
+  variationGroup: varchar('variation_group', { length: 100 }),
 
   difficulty: integer('difficulty').notNull(),
 
