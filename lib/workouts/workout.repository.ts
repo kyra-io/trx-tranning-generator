@@ -107,6 +107,37 @@ export async function listWorkouts(): Promise<WorkoutSummary[]> {
     .orderBy(desc(workouts.createdAt));
 }
 
+export async function getRecentWorkoutExerciseIds(limit = 10) {
+  const recentWorkouts = await db
+    .select({ id: workouts.id })
+    .from(workouts)
+    .orderBy(desc(workouts.createdAt))
+    .limit(limit);
+
+  if (recentWorkouts.length === 0) return [];
+
+  const rows = await db
+    .select({
+      workoutId: workoutBlocks.workoutId,
+      exerciseId: workoutExercises.exerciseId,
+    })
+    .from(workoutBlocks)
+    .innerJoin(workoutExercises, eq(workoutExercises.blockId, workoutBlocks.id))
+    .where(inArray(workoutBlocks.workoutId, recentWorkouts.map(({ id }) => id)));
+  const exerciseIdsByWorkout = new Map<string, Set<string>>();
+
+  for (const row of rows) {
+    const exerciseIds = exerciseIdsByWorkout.get(row.workoutId) ?? new Set<string>();
+    exerciseIds.add(row.exerciseId);
+    exerciseIdsByWorkout.set(row.workoutId, exerciseIds);
+  }
+
+  return recentWorkouts.map(({ id }) => ({
+    workoutId: id,
+    exerciseIds: [...(exerciseIdsByWorkout.get(id) ?? [])],
+  }));
+}
+
 export async function deleteWorkout(id: string): Promise<boolean> {
   const deletedWorkouts = await db
     .delete(workouts)

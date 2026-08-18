@@ -16,18 +16,19 @@ import {
   generatedWorkoutSchema,
   validateGeneratedWorkoutBusinessRules,
 } from '@/lib/workouts/generated-workout';
-import { getWorkoutById } from '@/lib/workouts/workout.repository';
+import {
+  type CandidateExercise,
+  selectWorkoutCandidates,
+  type WorkoutFocus,
+  type WorkoutGoal,
+  type WorkoutLevel,
+} from '@/lib/workouts/workout-candidate-selector';
+import {
+  getRecentWorkoutExerciseIds,
+  getWorkoutById,
+} from '@/lib/workouts/workout.repository';
 
-export type WorkoutGoal =
-  | 'strength'
-  | 'hypertrophy'
-  | 'general_fitness';
-export type WorkoutLevel = 'beginner' | 'intermediate' | 'advanced';
-export type WorkoutFocus =
-  | 'full_body'
-  | 'upper_body'
-  | 'lower_body'
-  | 'core';
+export type { WorkoutFocus, WorkoutGoal, WorkoutLevel } from '@/lib/workouts/workout-candidate-selector';
 
 export type GenerateWorkoutInput = {
   goal: WorkoutGoal;
@@ -37,23 +38,7 @@ export type GenerateWorkoutInput = {
   intensity: number;
 };
 
-type CatalogExercise = Pick<
-  typeof exercises.$inferSelect,
-  | 'id'
-  | 'slug'
-  | 'name'
-  | 'family'
-  | 'primaryPattern'
-  | 'difficulty'
-  | 'unilateral'
-> & {
-  muscles: Array<{
-    slug: string;
-    bodyRegion: string | null;
-    role: string;
-    activation: number;
-  }>;
-};
+type CatalogExercise = CandidateExercise;
 
 type Prescription = {
   sets: number;
@@ -73,19 +58,6 @@ export class WorkoutGenerationError extends Error {
     this.name = 'WorkoutGenerationError';
   }
 }
-
-const maximumDifficulty: Record<WorkoutLevel, number> = {
-  beginner: 1,
-  intermediate: 2,
-  advanced: 3,
-};
-
-const focusPatterns: Record<WorkoutFocus, string[]> = {
-  full_body: ['pull', 'push', 'squat', 'lunge', 'hinge', 'plank', 'rotate'],
-  upper_body: ['push', 'pull', 'rotate', 'plank'],
-  lower_body: ['squat', 'lunge', 'hinge'],
-  core: ['plank', 'rotate'],
-};
 
 function normalize(value: string | null) {
   return value?.trim().toLowerCase().replaceAll('-', '_').replaceAll(' ', '_') ?? '';
@@ -110,13 +82,6 @@ function hasPrimaryMuscleRegion(exercise: CatalogExercise, region: string) {
   );
 }
 
-function isLowerBody(exercise: CatalogExercise) {
-  return (
-    hasPattern(exercise, ['squat', 'lunge', 'hinge']) ||
-    hasPrimaryMuscleRegion(exercise, 'lower_body')
-  );
-}
-
 function isCore(exercise: CatalogExercise) {
   return (
     hasPattern(exercise, ['plank', 'rotate', 'fallout', 'core']) ||
@@ -124,79 +89,11 @@ function isCore(exercise: CatalogExercise) {
   );
 }
 
-function matchesFocus(exercise: CatalogExercise, focus: WorkoutFocus) {
-  if (focus === 'full_body') {
-    return true;
-  }
-
-  if (hasPattern(exercise, focusPatterns[focus])) {
-    return true;
-  }
-
-  if (focus === 'upper_body') {
-    return (
-      hasPrimaryMuscleRegion(exercise, 'upper_body') ||
-      hasPrimaryMuscleRegion(exercise, 'arms')
-    );
-  }
-
-  if (focus === 'lower_body') {
-    return isLowerBody(exercise);
-  }
-
-  return isCore(exercise);
-}
-
 function targetExerciseCount(durationMinutes: number) {
   if (durationMinutes <= 20) return 3;
   if (durationMinutes <= 35) return 6;
   if (durationMinutes <= 50) return 8;
   return 10;
-}
-
-function selectExercises(
-  compatibleExercises: CatalogExercise[],
-  focus: WorkoutFocus,
-  count: number,
-) {
-  const selected: CatalogExercise[] = [];
-  const selectedIds = new Set<string>();
-  const priorities: Array<(exercise: CatalogExercise) => boolean> =
-    focus === 'full_body'
-      ? [
-          (exercise) => hasPattern(exercise, ['pull']),
-          (exercise) => hasPattern(exercise, ['push']),
-          isLowerBody,
-          isCore,
-        ]
-      : focusPatterns[focus].map(
-          (pattern) => (exercise) => hasPattern(exercise, [pattern]),
-        );
-
-  const addFirstMatch = (predicate: (exercise: CatalogExercise) => boolean) => {
-    const exercise = compatibleExercises.find(
-      (candidate) => !selectedIds.has(candidate.id) && predicate(candidate),
-    );
-
-    if (exercise && selected.length < count) {
-      selected.push(exercise);
-      selectedIds.add(exercise.id);
-    }
-  };
-
-  priorities.forEach(addFirstMatch);
-  compatibleExercises
-    .filter((exercise) => matchesFocus(exercise, focus))
-    .forEach((exercise) => addFirstMatch((candidate) => candidate.id === exercise.id));
-  compatibleExercises.forEach((exercise) =>
-    addFirstMatch((candidate) => candidate.id === exercise.id),
-  );
-
-  for (let index = 0; selected.length < count; index += 1) {
-    selected.push(compatibleExercises[index % compatibleExercises.length]);
-  }
-
-  return selected;
 }
 
 function getPrescription(
@@ -274,7 +171,7 @@ function getWorkoutName(goal: WorkoutGoal, focus: WorkoutFocus) {
   return `${focusNames[focus]} ${goalNames[goal]}`;
 }
 
-async function loadCompatibleExercises(input: GenerateWorkoutInput) {
+async function loadExerciseCatalog() {
   const catalogRows = await db
     .select({
       id: exercises.id,
@@ -295,17 +192,6 @@ async function loadCompatibleExercises(input: GenerateWorkoutInput) {
     );
   }
 
-  const compatibleRows = catalogRows.filter(
-    (exercise) => exercise.difficulty <= maximumDifficulty[input.level],
-  );
-
-  if (compatibleRows.length === 0) {
-    throw new WorkoutGenerationError(
-      'NO_COMPATIBLE_EXERCISES',
-      'No compatible exercises available',
-    );
-  }
-
   const muscleRows = await db
     .select({
       exerciseId: exerciseMuscles.exerciseId,
@@ -316,7 +202,7 @@ async function loadCompatibleExercises(input: GenerateWorkoutInput) {
     })
     .from(exerciseMuscles)
     .innerJoin(muscles, eq(exerciseMuscles.muscleId, muscles.id))
-    .where(inArray(exerciseMuscles.exerciseId, compatibleRows.map(({ id }) => id)))
+    .where(inArray(exerciseMuscles.exerciseId, catalogRows.map(({ id }) => id)))
     .orderBy(asc(muscles.slug));
   const musclesByExerciseId = new Map<string, CatalogExercise['muscles']>();
 
@@ -331,21 +217,19 @@ async function loadCompatibleExercises(input: GenerateWorkoutInput) {
     musclesByExerciseId.set(muscle.exerciseId, exerciseMuscleList);
   }
 
-  const compatibleExercises = compatibleRows.map((exercise) => ({
+  return catalogRows.map((exercise) => ({
     ...exercise,
     muscles: musclesByExerciseId.get(exercise.id) ?? [],
   }));
 
-  return compatibleExercises;
 }
 
 function generateDeterministicPlan(
   input: GenerateWorkoutInput,
   compatibleExercises: CatalogExercise[],
 ): GeneratedWorkout {
-  const selectedExercises = selectExercises(
-    compatibleExercises,
-    input.focus,
+  const selectedExercises = compatibleExercises.slice(
+    0,
     targetExerciseCount(input.durationMinutes),
   );
   const generatedItems = selectedExercises.map((exercise) => ({
@@ -514,7 +398,34 @@ function summarizeGenerationError(error: unknown) {
 }
 
 export async function generateWorkout(input: GenerateWorkoutInput) {
-  const compatibleExercises = await loadCompatibleExercises(input);
+  const [catalog, recentWorkouts] = await Promise.all([
+    loadExerciseCatalog(),
+    getRecentWorkoutExerciseIds(10),
+  ]);
+  const compatibleExercises = selectWorkoutCandidates({
+    input,
+    catalog,
+    recentWorkouts,
+  });
+
+  if (compatibleExercises.length === 0) {
+    throw new WorkoutGenerationError(
+      'NO_COMPATIBLE_EXERCISES',
+      'No compatible exercises available',
+    );
+  }
+
+  if (process.env.NODE_ENV === 'development') {
+    console.info(
+      'Candidate pool:\n' +
+        compatibleExercises
+          .map(
+            (exercise) =>
+              `- ${exercise.name} score=${exercise.score} recent=${exercise.recentCount} group=${exercise.variationGroup}`,
+          )
+          .join('\n'),
+    );
+  }
   let generatedWorkout: GeneratedWorkout;
   let openRouterModel: string | null = null;
 
