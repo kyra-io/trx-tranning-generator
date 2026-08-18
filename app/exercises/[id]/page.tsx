@@ -71,10 +71,13 @@ function MuscleList({ muscles }: { muscles: ExerciseDetail["muscles"] }) {
 
 export default async function ExerciseDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ workoutId?: string | string[] }>;
 }) {
   const { id } = await params;
+  const { workoutId } = await searchParams;
 
   if (!UUID_PATTERN.test(id)) {
     notFound();
@@ -95,12 +98,16 @@ export default async function ExerciseDetailPage({
     svgRegion: muscle.svgRegion,
     score: muscle.activation,
   }));
+  const backHref =
+    typeof workoutId === "string" && UUID_PATTERN.test(workoutId)
+      ? `/workouts/${workoutId}`
+      : "/workouts";
 
   return (
     <div className="min-w-0">
       <header>
         <Link
-          href="/workouts"
+          href={backHref}
           className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-zinc-500 outline-none hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-emerald-700"
         >
           <svg

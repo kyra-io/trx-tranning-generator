@@ -61,8 +61,10 @@ function getMainMuscles(
 }
 
 function ExerciseCard({
+  workoutId,
   workoutExercise,
 }: {
+  workoutId: string;
   workoutExercise: WorkoutDetail["blocks"][number]["exercises"][number];
 }) {
   const { exercise } = workoutExercise;
@@ -81,7 +83,10 @@ function ExerciseCard({
         <div className="min-w-0 flex-1 py-0.5">
           <h3 className="font-semibold leading-5 text-zinc-900">
             <Link
-              href={`/exercises/${exercise.id}`}
+              href={{
+                pathname: `/exercises/${exercise.id}`,
+                query: { workoutId },
+              }}
               className="-my-2 inline-flex min-h-11 items-center rounded-md py-2 outline-none hover:text-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-700"
             >
               {exercise.name}
@@ -211,6 +216,7 @@ export default async function WorkoutDetailPage(
                 {block.exercises.map((exercise) => (
                   <ExerciseCard
                     key={exercise.id}
+                    workoutId={workout.id}
                     workoutExercise={exercise}
                   />
                 ))}
