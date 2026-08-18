@@ -27,6 +27,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Follow the existing schema style: explicit `varchar` lengths, timezone-aware timestamps, inline foreign keys, and generated UUID primary keys.
 - Generate migrations with `npm run db:generate`, inspect the generated SQL, then apply them with `npm run db:migrate`. Do not edit generated migrations without a concrete reason.
 - Keep standalone database seeds under `lib/db/`, load `.env` files with `@next/env` before importing the database connection, and make development fixtures idempotent.
+- Keep verified exercise image fixtures in `lib/db/seed-exercise-images.ts` as external asset URLs from public official TRX Training pages; do not download assets, copy them into `public/`, or scrape sources at application runtime.
+- Resolve exercise images by slug, treat `(exerciseId, type, url)` as the idempotency key in seed logic, and never remove images added outside the seed.
+- Run `npm run db:seed:exercise-images` to add verified images for exercises currently present in the database; configured slugs that are absent must be reported and skipped.
 - Run `npm run db:seed:workout` to recreate the `Full Body Strength` development workout from exercises already present in the database.
 - Run `npm run lint`, `npx tsc --noEmit`, and `npm run build` after code or schema changes.
 - The local PostgreSQL service is defined in `docker-compose.yml`.
