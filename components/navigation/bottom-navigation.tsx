@@ -31,9 +31,9 @@ export function BottomNavigation() {
               key={item.href}
               href={item.href}
               aria-current={isActive ? "page" : undefined}
-              className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-4 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 ${
+              className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-4 text-xs font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                 isActive
-                  ? "bg-emerald-50 text-emerald-800"
+                  ? "bg-primary-soft text-primary-hover"
                   : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
               }`}
             >

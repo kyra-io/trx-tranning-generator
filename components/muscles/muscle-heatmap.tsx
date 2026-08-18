@@ -1,6 +1,6 @@
 import {
   clampMuscleScore,
-  getMuscleIntensity,
+  getMuscleHeatmapColor,
   getMuscleIntensityLabel,
   getTopMuscles,
   type MuscleHeatmapItem,
@@ -169,8 +169,7 @@ function BodyFigure({
               fill="currentColor"
               stroke="currentColor"
               strokeWidth="1"
-              className="text-emerald-700"
-              style={{ opacity: getMuscleIntensity(score) }}
+              style={{ color: getMuscleHeatmapColor(score) }}
             />
           ));
         })}
@@ -249,10 +248,10 @@ export function MuscleHeatmap({
                 className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-100"
               >
                 <div
-                  className="h-full rounded-full bg-emerald-700"
+                  className="h-full rounded-full"
                   style={{
                     width: `${percentage}%`,
-                    opacity: getMuscleIntensity(score),
+                    backgroundColor: getMuscleHeatmapColor(score),
                   }}
                 />
               </div>

@@ -40,7 +40,7 @@ export function OptionGroup({
             <label
               key={option.value}
               htmlFor={id}
-              className="cursor-pointer rounded-xl outline-none focus-within:ring-2 focus-within:ring-emerald-700 focus-within:ring-offset-2"
+              className="cursor-pointer rounded-xl outline-none focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2"
             >
               <input
                 id={id}
@@ -51,7 +51,7 @@ export function OptionGroup({
                 onChange={() => onChange(option.value)}
                 className="peer sr-only"
               />
-              <span className="flex min-h-11 items-center justify-center rounded-xl border border-zinc-200 bg-white px-2.5 py-2 text-center text-sm font-medium text-zinc-600 transition-colors peer-checked:border-emerald-700 peer-checked:bg-emerald-50 peer-checked:text-emerald-900">
+              <span className="flex min-h-11 items-center justify-center rounded-xl border border-zinc-200 bg-white px-2.5 py-2 text-center text-sm font-medium text-zinc-600 transition-colors peer-checked:border-primary peer-checked:bg-primary-soft peer-checked:text-primary-hover">
                 {option.label}
               </span>
             </label>

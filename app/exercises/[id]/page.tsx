@@ -108,7 +108,7 @@ export default async function ExerciseDetailPage({
       <header>
         <Link
           href={backHref}
-          className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-zinc-500 outline-none hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-emerald-700"
+          className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-zinc-500 outline-none hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-primary"
         >
           <svg
             aria-hidden="true"
@@ -135,7 +135,7 @@ export default async function ExerciseDetailPage({
           <span aria-hidden="true">·</span>
           <span>{difficulty}</span>
           {exercise.unilateral ? (
-            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
+            <span className="rounded-full border border-primary bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary-hover">
               Unilateral
             </span>
           ) : null}
@@ -205,7 +205,7 @@ export default async function ExerciseDetailPage({
               href={exercise.sourceUrl}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 inline-flex min-h-11 items-center font-medium text-emerald-800 underline-offset-4 outline-none hover:underline focus-visible:rounded focus-visible:ring-2 focus-visible:ring-emerald-700"
+              className="mt-2 inline-flex min-h-11 items-center font-medium text-primary-hover underline-offset-4 outline-none hover:text-primary-strong hover:underline focus-visible:rounded focus-visible:ring-2 focus-visible:ring-primary"
             >
               {exercise.sourceName}
             </a>

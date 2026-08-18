@@ -77,8 +77,8 @@ export function ExerciseMediaGallery({
                 aria-label={`Show image ${index + 1} of ${images.length}`}
                 aria-pressed={isSelected}
                 onClick={() => setSelectedImageId(image.id)}
-                className={`size-16 shrink-0 overflow-hidden rounded-xl border-2 bg-zinc-100 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 ${
-                  isSelected ? "border-emerald-700" : "border-transparent"
+                className={`size-16 shrink-0 overflow-hidden rounded-xl border-2 bg-zinc-100 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                  isSelected ? "border-primary" : "border-transparent"
                 }`}
               >
                 {hasFailed ? (

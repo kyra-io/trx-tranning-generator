@@ -51,5 +51,5 @@ test("renders mapped and unmapped muscles without relying on hover", () => {
   assert.match(markup, /Back muscle activation heatmap/);
   assert.match(markup, /Lats/);
   assert.match(markup, /Unsupported muscle/);
-  assert.match(markup, /opacity:1/);
+  assert.match(markup, /color:var\(--heatmap-5\)/);
 });

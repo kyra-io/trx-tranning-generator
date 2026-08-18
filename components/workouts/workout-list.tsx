@@ -82,7 +82,7 @@ export function WorkoutList() {
         onChange={(event) => {
           setFilter(event.target.value as WorkoutFilter);
         }}
-        className="min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+        className="min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
       >
         <option value="generated">Generated</option>
         <option value="completed">Completed</option>
@@ -110,7 +110,7 @@ export function WorkoutList() {
               setWorkouts(null);
               setRequestKey((key) => key + 1);
             }}
-            className="mt-5 min-h-11 rounded-xl border border-zinc-200 bg-white px-5 text-sm font-semibold text-zinc-900 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+            className="mt-5 min-h-11 rounded-xl border border-zinc-200 bg-white px-5 text-sm font-semibold text-zinc-900 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Try again
           </button>
@@ -173,7 +173,7 @@ export function WorkoutList() {
           </p>
           <Link
             href="/"
-            className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+            className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary-hover px-5 text-sm font-semibold text-white outline-none hover:bg-primary-strong focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Create workout
           </Link>

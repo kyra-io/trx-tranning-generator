@@ -38,10 +38,10 @@ export function WorkoutCard({ workout }: { workout: WorkoutSummary }) {
   return (
     <Link
       href={`/workouts/${workout.id}`}
-      className="group block rounded-2xl border border-zinc-200 bg-white p-4 outline-none transition-colors hover:border-zinc-300 focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+      className="group block rounded-2xl border border-zinc-200 bg-white p-4 outline-none transition-colors hover:border-zinc-300 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
     >
       <div className="flex items-start justify-between gap-4">
-        <h2 className="font-semibold text-zinc-900 group-hover:text-emerald-800">
+        <h2 className="font-semibold text-zinc-900 group-hover:text-primary-hover">
           {workout.name}
         </h2>
         <svg
@@ -70,7 +70,13 @@ export function WorkoutCard({ workout }: { workout: WorkoutSummary }) {
         <time dateTime={workout.createdAt} className="text-zinc-500">
           {createdDate}
         </time>
-        <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-800">
+        <span
+          className={`rounded-full px-2.5 py-1 font-medium ${
+            workout.status === "completed"
+              ? "bg-emerald-50 text-emerald-800"
+              : "bg-primary-soft text-primary-hover"
+          }`}
+        >
           {labels[workout.status] ?? workout.status}
         </span>
       </div>

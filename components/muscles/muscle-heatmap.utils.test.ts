@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   clampMuscleScore,
+  getMuscleHeatmapColor,
   getMuscleIntensity,
   getMuscleIntensityLabel,
   getTopMuscles,
@@ -19,6 +20,15 @@ test("keeps low scores subtle but visible", () => {
   assert.equal(getMuscleIntensity(0), 0.08);
   assert.ok(getMuscleIntensity(0.1) > 0.08);
   assert.ok(getMuscleIntensity(0.1) < getMuscleIntensity(0.5));
+});
+
+test("maps activation to the dedicated red heatmap scale", () => {
+  assert.equal(getMuscleHeatmapColor(0), "transparent");
+  assert.equal(getMuscleHeatmapColor(0.1), "var(--heatmap-1)");
+  assert.equal(getMuscleHeatmapColor(0.4), "var(--heatmap-2)");
+  assert.equal(getMuscleHeatmapColor(0.6), "var(--heatmap-3)");
+  assert.equal(getMuscleHeatmapColor(0.8), "var(--heatmap-4)");
+  assert.equal(getMuscleHeatmapColor(1), "var(--heatmap-5)");
 });
 
 test("uses stable textual intensity bands", () => {

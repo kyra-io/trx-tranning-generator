@@ -87,7 +87,7 @@ function ExerciseCard({
                 pathname: `/exercises/${exercise.id}`,
                 query: { workoutId },
               }}
-              className="-my-2 inline-flex min-h-11 items-center rounded-md py-2 outline-none hover:text-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-700"
+              className="-my-2 inline-flex min-h-11 items-center rounded-md py-2 outline-none hover:text-primary-hover focus-visible:ring-2 focus-visible:ring-primary"
             >
               {exercise.name}
             </Link>
@@ -147,7 +147,7 @@ export default async function WorkoutDetailPage(
       <header>
         <Link
           href="/workouts"
-          className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-zinc-500 outline-none hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-emerald-700"
+          className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-zinc-500 outline-none hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-primary"
         >
           <svg
             aria-hidden="true"

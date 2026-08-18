@@ -143,7 +143,13 @@ export function WorkoutDetailActions({
         tabIndex={-1}
         className="mt-4 outline-none"
       >
-        <span className="inline-flex min-h-7 items-center rounded-full bg-emerald-50 px-3 text-xs font-medium text-emerald-800">
+        <span
+          className={`inline-flex min-h-7 items-center rounded-full px-3 text-xs font-medium ${
+            isCompleted
+              ? "bg-emerald-50 text-emerald-800"
+              : "bg-primary-soft text-primary-hover"
+          }`}
+        >
           {labels[status] ?? status.replaceAll("_", " ")}
         </span>
       </div>
@@ -177,7 +183,7 @@ export function WorkoutDetailActions({
                   setIsFeedbackOpen(true);
                 }}
                 disabled={isDeleting}
-                className="flex min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+                className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary-hover px-5 text-sm font-semibold text-white outline-none hover:bg-primary-strong focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
               >
                 Complete workout
               </button>
@@ -201,9 +207,9 @@ export function WorkoutDetailActions({
                       return (
                         <label
                           key={option.value}
-                          className={`min-h-11 rounded-xl border px-2 text-sm font-medium outline-none focus-within:ring-2 focus-within:ring-emerald-700 focus-within:ring-offset-2 ${
+                          className={`min-h-11 rounded-xl border px-2 text-sm font-medium outline-none focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 ${
                             isSelected
-                              ? "border-emerald-700 bg-emerald-50 text-emerald-800"
+                              ? "border-primary bg-primary-soft text-primary-hover"
                               : "border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300"
                           }`}
                         >
@@ -242,7 +248,7 @@ export function WorkoutDetailActions({
                   rows={3}
                   disabled={isCompleting || isDeleting}
                   placeholder="How did the workout feel?"
-                  className="mt-2 w-full resize-none rounded-xl border border-zinc-200 bg-white px-3 py-3 text-base text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700"
+                  className="mt-2 w-full resize-none rounded-xl border border-zinc-200 bg-white px-3 py-3 text-base text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-primary focus:ring-1 focus:ring-primary"
                 />
 
                 <div className="mt-4 flex gap-2">
@@ -253,14 +259,14 @@ export function WorkoutDetailActions({
                       setIsFeedbackOpen(false);
                     }}
                     disabled={isCompleting || isDeleting}
-                    className="min-h-11 flex-1 rounded-xl border border-zinc-200 px-4 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:opacity-60"
+                    className="min-h-11 flex-1 rounded-xl border border-zinc-200 px-4 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isCompleting || isDeleting}
-                    className="min-h-11 flex-1 rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
+                    className="min-h-11 flex-1 rounded-xl bg-primary-hover px-4 text-sm font-semibold text-white outline-none hover:bg-primary-strong focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
                   >
                     {isCompleting ? "Completing..." : "Complete"}
                   </button>

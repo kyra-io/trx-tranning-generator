@@ -163,7 +163,7 @@ export function WorkoutGeneratorForm() {
           </label>
           <output
             htmlFor="intensity"
-            className="flex size-9 items-center justify-center rounded-full bg-emerald-50 text-sm font-semibold text-emerald-800"
+            className="flex size-9 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary-hover"
           >
             {intensity}
           </output>
@@ -176,7 +176,7 @@ export function WorkoutGeneratorForm() {
           step="1"
           value={intensity}
           onChange={(event) => setIntensity(Number(event.target.value))}
-          className="h-11 w-full cursor-pointer accent-emerald-700 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+          className="h-11 w-full cursor-pointer accent-primary outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         />
         <div
           aria-hidden="true"
@@ -201,7 +201,7 @@ export function WorkoutGeneratorForm() {
         type="submit"
         disabled={isGenerating}
         aria-describedby={error ? "generation-error" : undefined}
-        className="min-h-13 w-full rounded-xl bg-emerald-700 px-5 py-3.5 text-base font-semibold text-white outline-none transition-colors hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 active:bg-emerald-900 disabled:cursor-wait disabled:opacity-60"
+        className="min-h-13 w-full rounded-xl bg-primary-hover px-5 py-3.5 text-base font-semibold text-white outline-none transition-colors hover:bg-primary-strong focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:bg-primary-strong disabled:cursor-wait disabled:opacity-60"
       >
         {isGenerating ? "Generating..." : "Generate workout"}
       </button>

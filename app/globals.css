@@ -3,11 +3,29 @@
 :root {
   --background: #fafafa;
   --foreground: #171717;
+  --primary: #907aa9;
+  --primary-hover: #7d678f;
+  --primary-strong: #6d587f;
+  --primary-soft: #f2e9f2;
+  --heatmap-1: #fee2e2;
+  --heatmap-2: #fca5a5;
+  --heatmap-3: #f87171;
+  --heatmap-4: #ef4444;
+  --heatmap-5: #b91c1c;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-strong: var(--primary-strong);
+  --color-primary-soft: var(--primary-soft);
+  --color-heatmap-1: var(--heatmap-1);
+  --color-heatmap-2: var(--heatmap-2);
+  --color-heatmap-3: var(--heatmap-3);
+  --color-heatmap-4: var(--heatmap-4);
+  --color-heatmap-5: var(--heatmap-5);
   --font-sans: var(--font-geist-sans);
 }
 
