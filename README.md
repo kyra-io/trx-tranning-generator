@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TRX Training Generator
 
-## Getting Started
+Aplicação Next.js com PostgreSQL e Drizzle ORM, preparada para execução self-hosted com Docker Compose.
 
-First, run the development server:
+## Primeira instalação
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env
+# Editar .env e definir POSTGRES_PASSWORD e, opcionalmente, OPENROUTER_API_KEY.
+docker compose up -d --build
+docker compose ps
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+A aplicação fica disponível em <http://localhost:3003>. O PostgreSQL não publica uma porta no host.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+As migrations versionadas em `drizzle/` são aplicadas automaticamente antes de cada arranque da aplicação. Se uma migration falhar, o servidor Next.js não arranca.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Uma base nova contém o schema, mas não o catálogo. Inicialize os músculos e exercícios uma única vez com:
 
-## Learn More
+```bash
+docker compose run --rm app ./docker-bootstrap.sh
+```
 
-To learn more about Next.js, take a look at the following resources:
+Este bootstrap é explícito e idempotente. Não cria imagens nem workouts e nunca é executado durante um restart normal. As imagens e o workout de desenvolvimento continuam disponíveis através dos scripts npm existentes para tarefas de desenvolvimento controladas.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Operação
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Depois da primeira build, o sistema arranca com:
 
-## Deploy on Vercel
+```bash
+docker compose up -d
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Comandos úteis:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+docker compose ps
+docker compose logs -f app
+docker compose restart app
+docker compose down
+```
+
+`docker compose down` remove os containers e a network default, mas preserva o volume nomeado `postgres_data`. Apenas `docker compose down -v` remove também os dados; use-o somente quando pretende apagar integralmente a base de dados.
+
+## Desenvolvimento local
+
+```bash
+npm ci
+npm run dev
+```
+
+Os scripts de migrations e seeds locais continuam definidos em `package.json`. Para desenvolvimento fora de Docker, defina `DATABASE_URL` com o endereço local do PostgreSQL.

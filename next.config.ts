@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   // Allow phones on the same private network to load Next.js development
   // assets. Production requests are not affected by this setting.
   allowedDevOrigins: [
