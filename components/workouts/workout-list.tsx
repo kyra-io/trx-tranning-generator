@@ -8,7 +8,28 @@ import {
   type WorkoutSummary,
 } from "@/components/workouts/workout-card";
 
+type WorkoutFilter = "generated" | "completed" | "all";
+
+const emptyStateCopy: Record<
+  WorkoutFilter,
+  { title: string; description: string }
+> = {
+  generated: {
+    title: "No generated workouts",
+    description: "Generate a new workout to see it here.",
+  },
+  completed: {
+    title: "No completed workouts",
+    description: "Workouts you complete will appear here.",
+  },
+  all: {
+    title: "No workouts yet",
+    description: "Generate your first workout to see it here.",
+  },
+};
+
 export function WorkoutList() {
+  const [filter, setFilter] = useState<WorkoutFilter>("generated");
   const [workouts, setWorkouts] = useState<WorkoutSummary[] | null>(null);
   const [error, setError] = useState(false);
   const [requestKey, setRequestKey] = useState(0);
@@ -47,77 +68,128 @@ export function WorkoutList() {
     return () => controller.abort();
   }, [requestKey]);
 
+  const filterControl = (
+    <div className="mb-4">
+      <label
+        htmlFor="workout-filter"
+        className="mb-1.5 block text-sm font-medium text-zinc-700"
+      >
+        Show workouts
+      </label>
+      <select
+        id="workout-filter"
+        value={filter}
+        onChange={(event) => {
+          setFilter(event.target.value as WorkoutFilter);
+        }}
+        className="min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+      >
+        <option value="generated">Generated</option>
+        <option value="completed">Completed</option>
+        <option value="all">All workouts</option>
+      </select>
+    </div>
+  );
+
   if (error) {
     return (
-      <div
-        role="alert"
-        className="rounded-2xl border border-zinc-200 bg-white px-5 py-8 text-center"
-      >
-        <h2 className="font-semibold text-zinc-900">Could not load workouts</h2>
-        <p className="mt-2 text-sm leading-6 text-zinc-500">
-          Check your connection and try again.
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            setError(false);
-            setWorkouts(null);
-            setRequestKey((key) => key + 1);
-          }}
-          className="mt-5 min-h-11 rounded-xl border border-zinc-200 bg-white px-5 text-sm font-semibold text-zinc-900 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+      <>
+        {filterControl}
+        <div
+          role="alert"
+          className="rounded-2xl border border-zinc-200 bg-white px-5 py-8 text-center"
         >
-          Try again
-        </button>
-      </div>
+          <h2 className="font-semibold text-zinc-900">Could not load workouts</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-500">
+            Check your connection and try again.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setError(false);
+              setWorkouts(null);
+              setRequestKey((key) => key + 1);
+            }}
+            className="mt-5 min-h-11 rounded-xl border border-zinc-200 bg-white px-5 text-sm font-semibold text-zinc-900 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+          >
+            Try again
+          </button>
+        </div>
+      </>
     );
   }
 
   if (workouts === null) {
     return (
-      <div role="status" className="py-12 text-center text-sm text-zinc-500">
-        Loading workouts...
-      </div>
+      <>
+        {filterControl}
+        <div role="status" className="py-12 text-center text-sm text-zinc-500">
+          Loading workouts...
+        </div>
+      </>
     );
   }
 
-  if (workouts.length === 0) {
+  const filteredWorkouts = workouts.filter((workout) => {
+    if (filter === "completed") {
+      return workout.status === "completed";
+    }
+
+    if (filter === "generated") {
+      return workout.status !== "completed";
+    }
+
+    return true;
+  });
+
+  if (filteredWorkouts.length === 0) {
+    const emptyState = emptyStateCopy[filter];
+
     return (
-      <div className="rounded-2xl border border-zinc-200 bg-white px-5 py-10 text-center">
-        <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-500">
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            className="size-5"
+      <>
+        {filterControl}
+        <div className="rounded-2xl border border-zinc-200 bg-white px-5 py-10 text-center">
+          <div className="mx-auto flex size-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-500">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              className="size-5"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M8 6h11M8 12h11M8 18h7M4 6h.01M4 12h.01M4 18h.01"
+              />
+            </svg>
+          </div>
+          <h2 className="mt-4 font-semibold text-zinc-900">
+            {emptyState.title}
+          </h2>
+          <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-zinc-500">
+            {emptyState.description}
+          </p>
+          <Link
+            href="/"
+            className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M8 6h11M8 12h11M8 18h7M4 6h.01M4 12h.01M4 18h.01"
-            />
-          </svg>
+            Create workout
+          </Link>
         </div>
-        <h2 className="mt-4 font-semibold text-zinc-900">No workouts yet</h2>
-        <p className="mx-auto mt-2 max-w-xs text-sm leading-6 text-zinc-500">
-          Generate your first workout to see it here.
-        </p>
-        <Link
-          href="/"
-          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white outline-none hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
-        >
-          Create workout
-        </Link>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="space-y-3">
-      {workouts.map((workout) => (
-        <WorkoutCard key={workout.id} workout={workout} />
-      ))}
-    </div>
+    <>
+      {filterControl}
+      <div className="space-y-3">
+        {filteredWorkouts.map((workout) => (
+          <WorkoutCard key={workout.id} workout={workout} />
+        ))}
+      </div>
+    </>
   );
 }
