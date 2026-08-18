@@ -55,7 +55,7 @@ For a new database, initialize the muscle and exercise catalog once:
 docker compose run --rm app ./docker-bootstrap.sh
 ```
 
-The bootstrap is idempotent. It does not add exercise images or a development workout.
+The bootstrap is idempotent. It seeds muscles, the complete local TRX exercise catalog, and verified external exercise image mappings. It does not add a development workout.
 
 ### 4. Open the application
 
@@ -72,9 +72,9 @@ Catalog initialization is intentionally manual:
 docker compose run --rm app ./docker-bootstrap.sh
 ```
 
-Run it after the first startup of a new database. It safely seeds the system muscle data and the local TRX exercise catalog and can be run again.
+Run it after the first startup of a new database. It safely seeds the system muscle data, the local TRX exercise catalog, and verified external exercise image mappings, and can be run again.
 
-Exercise images and the sample development workout are not part of the production bootstrap. Their npm scripts are documented under [Database commands](#database-commands).
+The sample development workout is not part of the production bootstrap. Its npm script is documented under [Database commands](#database-commands).
 
 ## Updating
 
@@ -159,7 +159,7 @@ These scripts run against the `DATABASE_URL` in the current environment:
 | `npm run db:seed:exercise-images` | Add verified external image mappings for catalog exercises. |
 | `npm run db:seed:workout` | Recreate the `Full Body Strength` development workout. |
 
-The production image does not include the project package metadata, development dependencies, or all TypeScript seed sources. Use `docker-bootstrap.sh` for production catalog initialization; the npm commands above are intended for a development checkout.
+The production image does not include the project package metadata, development dependencies, or all TypeScript seed sources. Use `docker-bootstrap.sh` for production catalog and image initialization; the npm commands above are intended for a development checkout.
 
 ## Environment variables
 
@@ -196,7 +196,7 @@ OpenRouter is used only for AI-assisted workout composition. Configure `OPENROUT
 
 ## Exercise images
 
-Exercise images may be loaded from external sources and can become unavailable if a source URL changes. Images are not added by the production catalog bootstrap; verified mappings can be seeded during development with `npm run db:seed:exercise-images`.
+Exercise images are loaded from external sources and can become unavailable if a source URL changes. The production bootstrap adds the verified mappings; during development, the same idempotent mappings can be added with `npm run db:seed:exercise-images`.
 
 ## Troubleshooting
 

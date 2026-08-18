@@ -14,7 +14,8 @@ COPY . .
 RUN npm run build
 RUN npx esbuild scripts/migrate.mjs --bundle --platform=node --format=cjs --outfile=/tmp/migrate.cjs \
     && npx esbuild lib/db/seed.ts --bundle --platform=node --format=cjs --outfile=/tmp/seed.cjs \
-    && npx esbuild lib/db/seed-exercises.ts --bundle --platform=node --format=cjs --outfile=/tmp/seed-exercises.cjs
+    && npx esbuild lib/db/seed-exercises.ts --bundle --platform=node --format=cjs --outfile=/tmp/seed-exercises.cjs \
+    && npx esbuild lib/db/seed-exercise-images.ts --bundle --platform=node --format=cjs --outfile=/tmp/seed-exercise-images.cjs
 
 FROM node:24.13.0-bookworm-slim AS runner
 WORKDIR /app
@@ -30,7 +31,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
-COPY --from=builder --chown=nextjs:nodejs /tmp/migrate.cjs /tmp/seed.cjs /tmp/seed-exercises.cjs ./scripts/
+COPY --from=builder --chown=nextjs:nodejs /tmp/migrate.cjs /tmp/seed.cjs /tmp/seed-exercises.cjs /tmp/seed-exercise-images.cjs ./scripts/
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
 COPY --chown=nextjs:nodejs docker-bootstrap.sh ./docker-bootstrap.sh
 COPY --chown=nextjs:nodejs scripts/healthcheck.mjs ./scripts/
