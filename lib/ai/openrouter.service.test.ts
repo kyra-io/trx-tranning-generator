@@ -74,7 +74,7 @@ test('sends a structured output request and returns the actual model', async () 
     assert.equal(body.provider.sort, 'latency');
     assert.equal(body.reasoning_effort, 'low');
     assert.equal(body.include_reasoning, false);
-    assert.equal(body.max_tokens, 2_000);
+    assert.equal(body.max_tokens, 4_000);
     assert.deepEqual(completion.data, { value: 'ok' });
     assert.equal(completion.model, 'meta-llama/llama-free');
   });

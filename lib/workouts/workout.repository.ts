@@ -142,6 +142,59 @@ export async function getRecentWorkoutExerciseIds(limit = 10) {
   }));
 }
 
+export type RecentWorkoutContext = {
+  workoutId: string;
+  goal: string;
+  focus: string;
+  exerciseIds: string[];
+  exerciseSlugs: string[];
+  blockTypes: string[];
+};
+
+export async function getRecentWorkoutContext(
+  limit = 5,
+): Promise<RecentWorkoutContext[]> {
+  const recentWorkouts = await db
+    .select({
+      id: workouts.id,
+      goal: workouts.goal,
+      focus: workouts.focus,
+    })
+    .from(workouts)
+    .orderBy(desc(workouts.createdAt))
+    .limit(limit);
+
+  if (recentWorkouts.length === 0) return [];
+
+  const rows = await db
+    .select({
+      workoutId: workoutBlocks.workoutId,
+      blockType: workoutBlocks.type,
+      blockPosition: workoutBlocks.position,
+      exerciseId: workoutExercises.exerciseId,
+      exerciseSlug: exercises.slug,
+      exercisePosition: workoutExercises.position,
+    })
+    .from(workoutBlocks)
+    .innerJoin(workoutExercises, eq(workoutExercises.blockId, workoutBlocks.id))
+    .innerJoin(exercises, eq(workoutExercises.exerciseId, exercises.id))
+    .where(inArray(workoutBlocks.workoutId, recentWorkouts.map(({ id }) => id)))
+    .orderBy(asc(workoutBlocks.position), asc(workoutExercises.position));
+
+  return recentWorkouts.map((workout) => {
+    const workoutRows = rows.filter((row) => row.workoutId === workout.id);
+
+    return {
+      workoutId: workout.id,
+      goal: workout.goal,
+      focus: workout.focus,
+      exerciseIds: workoutRows.map((row) => row.exerciseId),
+      exerciseSlugs: workoutRows.map((row) => row.exerciseSlug),
+      blockTypes: [...new Set(workoutRows.map((row) => row.blockType))],
+    };
+  });
+}
+
 export async function deleteWorkout(id: string): Promise<boolean> {
   const deletedWorkouts = await db
     .delete(workouts)

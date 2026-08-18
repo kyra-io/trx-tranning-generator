@@ -20,6 +20,14 @@ const labels: Record<string, string> = {
   beginner: "Beginner",
   intermediate: "Intermediate",
   advanced: "Advanced",
+  warm_up: "Warm-up",
+  straight_sets: "Straight Sets",
+  superset: "Superset",
+  circuit: "Circuit",
+  interval: "Intervals",
+  emom: "EMOM",
+  amrap: "AMRAP",
+  finisher: "Finisher",
 };
 
 function humanize(value: string) {
@@ -202,12 +210,19 @@ export default async function WorkoutDetailPage(
         <div className="mt-9 divide-y divide-zinc-200">
           {workout.blocks.map((block) => (
             <section key={block.id} className="py-7 first:pt-0">
-              <div className="mb-4 flex items-end justify-between gap-4">
-                <h2 className="text-xl font-semibold tracking-tight text-zinc-900">
-                  {block.name}
-                </h2>
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold tracking-tight text-zinc-900">
+                    {block.name}
+                  </h2>
+                  {block.type !== "warm_up" ? (
+                    <p className="mt-1 text-xs font-medium text-primary-hover">
+                      {humanize(block.type)}
+                    </p>
+                  ) : null}
+                </div>
                 {block.rounds > 1 ? (
-                  <p className="shrink-0 text-sm text-zinc-500">
+                  <p className="shrink-0 pt-1 text-sm text-zinc-500">
                     {block.rounds} rounds
                   </p>
                 ) : null}

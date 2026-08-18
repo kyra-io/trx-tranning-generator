@@ -67,7 +67,7 @@ export async function generateStructuredCompletion(
         },
         reasoning_effort: 'low',
         include_reasoning: false,
-        max_tokens: 2_000,
+        max_tokens: 4_000,
         stream: false,
       }),
       signal: controller.signal,
@@ -120,7 +120,6 @@ export async function generateStructuredCompletion(
     try {
       data = JSON.parse(content);
     } catch {
-      console.error('OpenRouter malformed content for debugging:', content);
       throw new OpenRouterError(
         `OpenRouter returned malformed JSON (model: ${resolvedModel})`,
       );

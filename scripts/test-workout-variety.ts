@@ -1,92 +1,106 @@
 import { loadEnvConfig } from '@next/env';
 
-loadEnvConfig(process.cwd());
-delete process.env.OPENROUTER_API_KEY;
+import type { GenerateWorkoutInput } from '../lib/workouts/workout-generator.service';
 
-const baseInput = {
+loadEnvConfig(process.cwd());
+
+const repeatedInput = {
+  goal: 'strength' as const,
   durationMinutes: 30,
   level: 'intermediate' as const,
   focus: 'full_body' as const,
   intensity: 7,
 };
 
-type Goal = 'strength' | 'hypertrophy' | 'general_fitness';
+const goalScenarios = [
+  repeatedInput,
+  { ...repeatedInput, goal: 'hypertrophy' as const, focus: 'upper_body' as const },
+  { ...repeatedInput, goal: 'general_fitness' as const },
+  { ...repeatedInput, focus: 'lower_body' as const },
+  { ...repeatedInput, focus: 'core' as const },
+];
 
-function distribution(values: Array<string | null>) {
-  const counts = new Map<string, number>();
-  for (const value of values) {
-    const key = value ?? 'null';
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  return Object.fromEntries([...counts].sort((a, b) => b[1] - a[1]));
-}
+type Workout = {
+  id: string;
+  name: string;
+  estimatedDurationMinutes: number | null;
+  blocks: Array<{
+    name: string;
+    type: string;
+    rounds: number;
+    exercises: Array<{ exercise: { id: string } }>;
+  }>;
+};
 
-async function runGoal(goal: Goal) {
-  const { generateWorkout } = await import('../lib/workouts/workout-generator.service');
-  const generated = [];
-
-  for (let index = 0; index < 20; index += 1) {
-    generated.push(await generateWorkout({ ...baseInput, goal }));
-  }
-
-  const exerciseLists = generated.map((workout) =>
-    workout.blocks.flatMap((block) => block.exercises.map(({ exercise }) => exercise)),
+function summarize(workout: Workout, previous?: Workout) {
+  const exerciseIds = workout.blocks.flatMap((block) =>
+    block.exercises.map(({ exercise }) => exercise.id),
   );
-  const signatures = exerciseLists.map((list) => list.map(({ id }) => id).sort().join(','));
-  const allExercises = exerciseLists.flat();
-  const frequencies = new Map<string, { name: string; count: number }>();
-
-  for (const exercise of allExercises) {
-    const frequency = frequencies.get(exercise.id) ?? { name: exercise.name, count: 0 };
-    frequency.count += 1;
-    frequencies.set(exercise.id, frequency);
-  }
-
-  const overlaps = exerciseLists.slice(1).map((list, index) => {
-    const previous = new Set(exerciseLists[index].map(({ id }) => id));
-    const current = new Set(list.map(({ id }) => id));
-    const intersection = [...current].filter((id) => previous.has(id)).length;
-    return intersection / new Set([...previous, ...current]).size;
-  });
-  const duplicateExerciseIds = exerciseLists.filter(
-    (list) => new Set(list.map(({ id }) => id)).size !== list.length,
-  ).length;
-  const duplicateVariationGroups = exerciseLists.filter((list) => {
-    const groups = list.map(({ variationGroup, id }) => variationGroup ?? `exercise:${id}`);
-    return new Set(groups).size !== groups.length;
-  }).length;
+  const previousIds = new Set(previous?.blocks.flatMap((block) =>
+    block.exercises.map(({ exercise }) => exercise.id),
+  ) ?? []);
+  const overlap = exerciseIds.filter((id) => previousIds.has(id)).length;
 
   return {
-    workouts: exerciseLists.length,
-    uniqueWorkouts: new Set(signatures).size,
-    averageConsecutiveOverlap: Number(
-      (overlaps.reduce((sum, overlap) => sum + overlap, 0) / overlaps.length).toFixed(3),
-    ),
-    frequencyByExercise: Object.fromEntries(
-      [...frequencies].sort((a, b) => b[1].count - a[1].count),
-    ),
-    primaryPattern: distribution(allExercises.map(({ primaryPattern }) => primaryPattern)),
-    force: distribution(allExercises.map(({ force }) => force)),
-    mechanic: distribution(allExercises.map(({ mechanic }) => mechanic)),
-    category: distribution(allExercises.map(({ category }) => category)),
-    variationGroup: distribution(allExercises.map(({ variationGroup }) => variationGroup)),
-    regressions: {
-      maximumDifficulty: Math.max(...allExercises.map(({ difficulty }) => difficulty)),
-      duplicateExerciseIdWorkouts: duplicateExerciseIds,
-      duplicateVariationGroupWorkouts: duplicateVariationGroups,
-      emptyWorkouts: exerciseLists.filter((list) => list.length === 0).length,
-    },
+    title: workout.name,
+    blocks: workout.blocks.map((block) =>
+      `${block.name} [${block.type}]${block.rounds > 1 ? ` x${block.rounds}` : ''}`,
+    ).join(' → '),
+    exerciseCount: exerciseIds.length,
+    overlapWithPrevious: previous ? overlap : null,
+    estimatedDuration: workout.estimatedDurationMinutes,
   };
 }
 
 async function main() {
-  const results = {
-    strength: await runGoal('strength'),
-    hypertrophy: await runGoal('hypertrophy'),
-    general_fitness: await runGoal('general_fitness'),
-  };
+  const baseUrl = process.env.GENERATOR_BASE_URL;
+  const generateWorkout: (input: GenerateWorkoutInput) => Promise<Workout> = baseUrl
+    ? async (input): Promise<Workout> => {
+        const response = await fetch(`${baseUrl}/api/workouts/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(input),
+        });
+        if (!response.ok) {
+          throw new Error(`Generation API returned ${response.status}: ${await response.text()}`);
+        }
+        return response.json() as Promise<Workout>;
+      }
+    : (await import('../lib/workouts/workout-generator.service')).generateWorkout;
+  const repeated: Workout[] = [];
 
-  console.log(JSON.stringify(results, null, 2));
+  for (let index = 0; index < 10; index += 1) {
+    repeated.push(await generateWorkout(repeatedInput));
+  }
+
+  console.log('\n10 repeated strength/full-body workouts');
+  console.table(repeated.map((workout, index) => ({
+    workout: index + 1,
+    ...summarize(workout, repeated[index - 1]),
+  })));
+
+  const scenarios: Workout[] = [];
+  for (const scenario of goalScenarios) {
+    scenarios.push(await generateWorkout(scenario));
+  }
+  console.log('\nGoal and focus scenarios');
+  console.table(scenarios.map((workout, index) => ({
+    goal: goalScenarios[index].goal,
+    focus: goalScenarios[index].focus,
+    ...summarize(workout),
+  })));
+
+  if (!baseUrl) {
+    const configuredApiKey = process.env.OPENROUTER_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
+    try {
+      const fallback = await generateWorkout(repeatedInput);
+      console.log('\nFallback without OpenRouter');
+      console.table([{ persistedId: fallback.id, ...summarize(fallback) }]);
+    } finally {
+      if (configuredApiKey) process.env.OPENROUTER_API_KEY = configuredApiKey;
+    }
+  }
 }
 
 main().then(() => process.exit(0)).catch((error: unknown) => {
