@@ -1,6 +1,7 @@
 import { asc, eq, inArray } from 'drizzle-orm';
 
-import { generateStructuredCompletion } from '@/lib/ai/openrouter.service';
+// import { generateStructuredCompletion } from '@/lib/ai/openrouter.service';
+import { generateStructuredCompletion } from '@/lib/ai/amalia.service';
 import { db } from '@/lib/db';
 import {
   exerciseMuscles,

@@ -26,6 +26,8 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-trx}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-trx}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openrouter/free}
+      AMALIA_API_KEY: ${AMALIA_API_KEY:-}
+      AMALIA_MODEL: ${AMALIA_MODEL:-caravela}
       NODE_ENV: production
       HOSTNAME: 0.0.0.0
       PORT: 3000
