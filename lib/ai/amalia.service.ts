@@ -1,5 +1,5 @@
 const AMALIA_URL = 'https://api.iaamalia.com/api/v1/chat/completions';
-const DEFAULT_MODEL = 'caravela';
+const DEFAULT_MODEL = 'amalia';
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 type JsonSchema = Record<string, unknown>;

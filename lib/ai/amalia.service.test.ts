@@ -28,7 +28,7 @@ async function withAmaliaEnvironment(
 
   globalThis.fetch = mockFetch;
   process.env.AMALIA_API_KEY = 'test-key';
-  process.env.AMALIA_MODEL = 'caravela';
+  process.env.AMALIA_MODEL = 'amalia';
 
   try {
     await callback();
@@ -52,7 +52,7 @@ test('sends Amalia an OpenAI-compatible request with schema instructions', async
 
     return new Response(
       JSON.stringify({
-        model: 'caravela',
+        model: 'amalia',
         choices: [{ message: { content: '{"value":"ok"}' } }],
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
@@ -67,13 +67,13 @@ test('sends Amalia an OpenAI-compatible request with schema instructions', async
       requestUrl,
       'https://api.iaamalia.com/api/v1/chat/completions',
     );
-    assert.equal(body.model, 'caravela');
+    assert.equal(body.model, 'amalia');
     assert.equal(body.response_format, undefined);
     assert.equal(body.provider, undefined);
     assert.match(body.messages[0].content, /Generate a workout\./);
     assert.match(body.messages[0].content, /Return only valid JSON/);
     assert.deepEqual(completion.data, { value: 'ok' });
-    assert.equal(completion.model, 'caravela');
+    assert.equal(completion.model, 'amalia');
   });
 });
 
@@ -91,7 +91,7 @@ test('reports malformed JSON returned by Amalia', async () => {
         generateStructuredCompletion(completionInput),
         (error) =>
           error instanceof AmaliaError &&
-          error.message === 'Amalia returned malformed JSON (model: caravela)',
+          error.message === 'Amalia returned malformed JSON (model: amalia)',
       );
     },
   );
