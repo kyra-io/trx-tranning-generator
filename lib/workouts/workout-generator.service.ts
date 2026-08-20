@@ -302,7 +302,7 @@ For straight_sets, use exercise sets and normally set block rounds to 1. For sup
   };
 }
 
-async function generateOpenRouterPlan(
+async function generateAiPlan(
   input: GenerateWorkoutInput,
   eligibleExercises: CatalogExercise[],
   recentWorkouts: RecentWorkoutContext[],
@@ -399,7 +399,7 @@ function logGenerationSummary({
   console.info('Workout generation', {
     eligibleExercises: eligibleCount,
     recentWorkouts: recentCount,
-    openRouterModel: model,
+    aiModel: model,
     blocks: workout.blocks.length,
     totalExercises: workout.warmup.exercises.length +
       workout.blocks.reduce((total, block) => total + block.exercises.length, 0),
@@ -423,21 +423,21 @@ export async function generateWorkout(input: GenerateWorkoutInput) {
   }
 
   let generatedWorkout: GeneratedWorkout;
-  let openRouterModel: string | null = null;
+  let aiModel: string | null = null;
   let fallbackUsed = false;
 
   try {
-    const result = await generateOpenRouterPlan(
+    const result = await generateAiPlan(
       input,
       eligibleExercises,
       plannerHistory,
     );
     generatedWorkout = result.workout;
-    openRouterModel = result.model;
+    aiModel = result.model;
   } catch (error) {
     fallbackUsed = true;
     console.warn(
-      'OpenRouter generation failed, using deterministic fallback:',
+      'AI generation failed, using deterministic fallback:',
       summarizeGenerationError(error),
     );
     const fallbackCandidates = selectWorkoutCandidates({
@@ -451,7 +451,7 @@ export async function generateWorkout(input: GenerateWorkoutInput) {
   logGenerationSummary({
     eligibleCount: eligibleExercises.length,
     recentCount: plannerHistory.length,
-    model: openRouterModel,
+    model: aiModel,
     workout: generatedWorkout,
     fallbackUsed,
   });
