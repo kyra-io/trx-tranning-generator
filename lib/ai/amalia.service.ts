@@ -34,6 +34,8 @@ export async function generateStructuredCompletion(
   }
 
   const model = process.env.AMALIA_MODEL ?? DEFAULT_MODEL;
+  const schemaInstruction = `Return only valid JSON matching this schema. Do not include markdown fences or explanatory text. Schema: ${JSON.stringify(input.jsonSchema)}`;
+  const systemMessage = `${input.systemPrompt} ${schemaInstruction}`;
   const controller = new AbortController();
   const timeout = setTimeout(
     () => controller.abort(),
@@ -50,32 +52,16 @@ export async function generateStructuredCompletion(
       body: JSON.stringify({
         model,
         messages: [
-          { role: 'system', content: input.systemPrompt },
+          { role: 'system', content: systemMessage },
           { role: 'user', content: input.userPrompt },
         ],
-        response_format: {
-          type: 'json_schema',
-          json_schema: {
-            name: input.schemaName,
-            strict: true,
-            schema: input.jsonSchema,
-          },
-        },
-        provider: {
-          require_parameters: true,
-          sort: 'latency',
-        },
-        reasoning_effort: 'low',
-        include_reasoning: false,
-        max_tokens: 4_000,
-        stream: false,
       }),
       signal: controller.signal,
     });
 
     if (!response.ok) {
       throw new AmaliaError(
-        `OpenRouter request failed with status ${response.status}`,
+        `Amalia request failed with status ${response.status}`,
       );
     }
 
