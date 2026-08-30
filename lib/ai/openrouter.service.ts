@@ -2,6 +2,8 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL = 'openrouter/free';
 const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_COMPLETION_ATTEMPTS = 2;
+const DEFAULT_MAX_TOKENS = 4_000;
+const TRUNCATION_RETRY_MAX_TOKENS = 8_000;
 
 type JsonSchema = Record<string, unknown>;
 
@@ -122,6 +124,23 @@ function getMessageContent(message: Record<string, unknown>) {
   return textParts.length > 0 ? textParts.join('\n') : null;
 }
 
+function getAttemptSystemPrompt(
+  systemPrompt: string,
+  previousFailure: string | null,
+) {
+  if (!previousFailure) return systemPrompt;
+
+  return `${systemPrompt}
+
+IMPORTANT RETRY: The previous generation returned ${previousFailure}. Produce the complete answer again from the original instructions. Return exactly one valid JSON object, with no Markdown, explanations, prefixes, or suffixes. Keep all free-text fields concise and ensure the response ends with the closing brace.`;
+}
+
+function getCompletionDetails(model: string, finishReason: string | null) {
+  return finishReason
+    ? `model: ${model}, finish reason: ${finishReason}`
+    : `model: ${model}, finish reason: unavailable`;
+}
+
 export async function generateStructuredCompletion(
   input: StructuredCompletionInput,
 ): Promise<StructuredCompletion> {
@@ -139,7 +158,12 @@ export async function generateStructuredCompletion(
   );
 
   try {
+    let previousFailure: string | null = null;
+
     for (let attempt = 1; attempt <= MAX_COMPLETION_ATTEMPTS; attempt += 1) {
+      const maxTokens = previousFailure?.includes('token limit')
+        ? TRUNCATION_RETRY_MAX_TOKENS
+        : DEFAULT_MAX_TOKENS;
       const response = await fetch(OPENROUTER_URL, {
         method: 'POST',
         headers: {
@@ -149,7 +173,13 @@ export async function generateStructuredCompletion(
         body: JSON.stringify({
           model,
           messages: [
-            { role: 'system', content: input.systemPrompt },
+            {
+              role: 'system',
+              content: getAttemptSystemPrompt(
+                input.systemPrompt,
+                previousFailure,
+              ),
+            },
             { role: 'user', content: input.userPrompt },
           ],
           response_format: {
@@ -167,7 +197,7 @@ export async function generateStructuredCompletion(
           },
           reasoning_effort: 'low',
           include_reasoning: false,
-          max_tokens: 4_000,
+          max_tokens: maxTokens,
           stream: false,
         }),
         signal: controller.signal,
@@ -201,7 +231,10 @@ export async function generateStructuredCompletion(
         throw new OpenRouterError('OpenRouter returned an invalid completion');
       }
 
-      const message = (firstChoice as Record<string, unknown>).message;
+      const choice = firstChoice as Record<string, unknown>;
+      const message = choice.message;
+      const finishReason =
+        typeof choice.finish_reason === 'string' ? choice.finish_reason : null;
 
       if (typeof message !== 'object' || message === null) {
         throw new OpenRouterError('OpenRouter returned an invalid message');
@@ -210,10 +243,15 @@ export async function generateStructuredCompletion(
       const content = getMessageContent(message as Record<string, unknown>);
 
       if (!content?.trim()) {
+        previousFailure =
+          finishReason === 'length'
+            ? 'an empty or truncated response caused by the token limit'
+            : 'an empty response';
+
         if (attempt < MAX_COMPLETION_ATTEMPTS) continue;
 
         throw new OpenRouterError(
-          `OpenRouter returned empty content (model: ${resolvedModel})`,
+          `OpenRouter returned empty content (${getCompletionDetails(resolvedModel, finishReason)})`,
         );
       }
 
@@ -226,9 +264,17 @@ export async function generateStructuredCompletion(
         };
       }
 
+      previousFailure =
+        finishReason === 'length'
+          ? 'truncated JSON caused by the token limit'
+          : 'malformed JSON';
+
       if (attempt === MAX_COMPLETION_ATTEMPTS) {
+        const failureType =
+          finishReason === 'length' ? 'truncated JSON' : 'malformed JSON';
+
         throw new OpenRouterError(
-          `OpenRouter returned malformed JSON (model: ${resolvedModel})`,
+          `OpenRouter returned ${failureType} (${getCompletionDetails(resolvedModel, finishReason)})`,
         );
       }
     }

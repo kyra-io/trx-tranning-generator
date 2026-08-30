@@ -67,6 +67,10 @@ test('planner prompt receives compact full catalog metadata and five-workout con
   assert.equal('family' in payload.eligibleExerciseCatalog[0], false);
   assert.equal('activation' in payload.eligibleExerciseCatalog[0].muscles[0], false);
   assert.match(prompts.systemPrompt, /Core is not a mandatory phase/);
+  assert.match(prompts.systemPrompt, /OUTPUT FORMAT — MANDATORY/);
+  assert.match(prompts.systemPrompt, /first character must be \{/);
+  assert.match(prompts.systemPrompt, /Do not use Markdown/);
+  assert.match(prompts.systemPrompt, /silently verify that JSON\.parse\(\)/);
 });
 
 test('deterministic fallback uses dynamic block types and no mandatory core block', async () => {

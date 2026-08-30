@@ -131,16 +131,19 @@ test('parses text content blocks returned by a provider', async () => {
   });
 });
 
-test('retries malformed model output once', async () => {
+test('retries truncated model output with reinforced instructions and more tokens', async () => {
   let callCount = 0;
-  const mockFetch: typeof fetch = async () => {
+  const requestBodies: Record<string, unknown>[] = [];
+  const mockFetch: typeof fetch = async (_input, init) => {
     callCount += 1;
+    requestBodies.push(JSON.parse(String(init?.body)));
 
     return new Response(
       JSON.stringify({
         model: `test/free-model-${callCount}`,
         choices: [
           {
+            finish_reason: callCount === 1 ? 'length' : 'stop',
             message: {
               content:
                 callCount === 1 ? '{"value":' : '{"value":"recovered"}',
@@ -156,6 +159,14 @@ test('retries malformed model output once', async () => {
     const completion = await generateStructuredCompletion(completionInput);
 
     assert.equal(callCount, 2);
+    assert.equal(requestBodies[0].max_tokens, 4_000);
+    assert.equal(requestBodies[1].max_tokens, 8_000);
+    assert.match(
+      String(
+        (requestBodies[1].messages as { content: string }[])[0].content,
+      ),
+      /IMPORTANT RETRY[\s\S]*token limit/,
+    );
     assert.deepEqual(completion.data, { value: 'recovered' });
     assert.equal(completion.model, 'test/free-model-2');
   });
@@ -184,10 +195,33 @@ test('rejects provider errors and malformed completion JSON', async () => {
     async () => {
       await assert.rejects(
         generateStructuredCompletion(completionInput),
-        /malformed JSON \(model: test\/model\)/,
+        /malformed JSON \(model: test\/model, finish reason: unavailable\)/,
       );
     },
   );
+});
+
+test('reports the model finish reason after the final invalid response', async () => {
+  const mockFetch: typeof fetch = async () =>
+    new Response(
+      JSON.stringify({
+        model: 'test/truncated-model',
+        choices: [
+          {
+            finish_reason: 'length',
+            message: { content: '{"value":' },
+          },
+        ],
+      }),
+      { status: 200 },
+    );
+
+  await withMockedOpenRouter(mockFetch, async () => {
+    await assert.rejects(
+      generateStructuredCompletion(completionInput),
+      /truncated JSON \(model: test\/truncated-model, finish reason: length\)/,
+    );
+  });
 });
 
 test('aborts an OpenRouter request after the configured timeout', async () => {

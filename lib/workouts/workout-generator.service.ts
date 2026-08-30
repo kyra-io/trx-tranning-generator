@@ -270,7 +270,17 @@ Warm-up is mandatory, proportional to the session, and represented separately. C
 
 Interpret strength as generally favoring compound work, moderate/lower reps, and longer rest; hypertrophy as generally favoring more volume, compound plus isolation work, and useful supersets; general fitness permits more circuits, conditioning, and intervals. These are tendencies, not templates. Intensity may alter difficulty within the eligible catalog, volume, density, rest, unilateral work, and structure.
 
-For straight_sets, use exercise sets and normally set block rounds to 1. For supersets, circuits, intervals, EMOM, and AMRAP, use block rounds and set exercise sets to null so volume is not counted twice. A prescription must contain reps, durationSeconds, or both. EMOM and AMRAP must use timed prescriptions and concise notes that make the format clear. Return only data matching the JSON schema.`;
+For straight_sets, use exercise sets and normally set block rounds to 1. For supersets, circuits, intervals, EMOM, and AMRAP, use block rounds and set exercise sets to null so volume is not counted twice. A prescription must contain reps, durationSeconds, or both. EMOM and AMRAP must use timed prescriptions and concise notes that make the format clear.
+
+OUTPUT FORMAT — MANDATORY:
+- Return exactly one valid JSON object matching the supplied JSON schema.
+- The first character must be { and the last character must be }.
+- Do not use Markdown, code fences, explanations, comments, prefixes, or suffixes.
+- Use double quotes for every key and string.
+- Do not use trailing commas, undefined, NaN, or unescaped line breaks.
+- Include every required property. Use null only where the schema permits null.
+- Keep names and notes concise so the complete object fits within the response limit.
+- Before responding, silently verify that JSON.parse() can parse the complete output.`;
   const exerciseCatalog = eligibleExercises.map((exercise) => ({
     id: exercise.id,
     slug: exercise.slug,
