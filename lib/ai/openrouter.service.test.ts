@@ -28,7 +28,7 @@ async function withMockedOpenRouter(
 
   globalThis.fetch = mockFetch;
   process.env.OPENROUTER_API_KEY = 'test-key';
-  process.env.OPENROUTER_MODEL = 'openai/gpt-oss-20b:free';
+  process.env.OPENROUTER_MODEL = 'openrouter/free';
 
   try {
     await callback();
@@ -67,9 +67,10 @@ test('sends a structured output request and returns the actual model', async () 
     assert.equal(requestUrl, 'https://openrouter.ai/api/v1/chat/completions');
     assert.equal(headers.get('Authorization'), 'Bearer test-key');
     assert.equal(headers.get('Content-Type'), 'application/json');
-    assert.equal(body.model, 'openai/gpt-oss-20b:free');
+    assert.equal(body.model, 'openrouter/free');
     assert.equal(body.response_format.type, 'json_schema');
     assert.equal(body.response_format.json_schema.strict, true);
+    assert.deepEqual(body.plugins, [{ id: 'response-healing' }]);
     assert.equal(body.provider.require_parameters, true);
     assert.equal(body.provider.sort, 'latency');
     assert.equal(body.reasoning_effort, 'low');
@@ -77,6 +78,86 @@ test('sends a structured output request and returns the actual model', async () 
     assert.equal(body.max_tokens, 4_000);
     assert.deepEqual(completion.data, { value: 'ok' });
     assert.equal(completion.model, 'meta-llama/llama-free');
+  });
+});
+
+test('parses JSON wrapped in markdown or explanatory text', async () => {
+  const contents = [
+    '```json\n{"value":"from markdown"}\n```',
+    'Here is the requested result:\n{"value":"from prose"}\nDone.',
+  ];
+  let callCount = 0;
+  const mockFetch: typeof fetch = async () =>
+    new Response(
+      JSON.stringify({
+        model: 'test/free-model',
+        choices: [{ message: { content: contents[callCount++] } }],
+      }),
+      { status: 200 },
+    );
+
+  await withMockedOpenRouter(mockFetch, async () => {
+    const markdown = await generateStructuredCompletion(completionInput);
+    const prose = await generateStructuredCompletion(completionInput);
+
+    assert.deepEqual(markdown.data, { value: 'from markdown' });
+    assert.deepEqual(prose.data, { value: 'from prose' });
+  });
+});
+
+test('parses text content blocks returned by a provider', async () => {
+  const mockFetch: typeof fetch = async () =>
+    new Response(
+      JSON.stringify({
+        model: 'test/free-model',
+        choices: [
+          {
+            message: {
+              content: [
+                { type: 'text', text: 'Result:\n' },
+                { type: 'text', text: '{"value":"from blocks"}' },
+              ],
+            },
+          },
+        ],
+      }),
+      { status: 200 },
+    );
+
+  await withMockedOpenRouter(mockFetch, async () => {
+    const completion = await generateStructuredCompletion(completionInput);
+
+    assert.deepEqual(completion.data, { value: 'from blocks' });
+  });
+});
+
+test('retries malformed model output once', async () => {
+  let callCount = 0;
+  const mockFetch: typeof fetch = async () => {
+    callCount += 1;
+
+    return new Response(
+      JSON.stringify({
+        model: `test/free-model-${callCount}`,
+        choices: [
+          {
+            message: {
+              content:
+                callCount === 1 ? '{"value":' : '{"value":"recovered"}',
+            },
+          },
+        ],
+      }),
+      { status: 200 },
+    );
+  };
+
+  await withMockedOpenRouter(mockFetch, async () => {
+    const completion = await generateStructuredCompletion(completionInput);
+
+    assert.equal(callCount, 2);
+    assert.deepEqual(completion.data, { value: 'recovered' });
+    assert.equal(completion.model, 'test/free-model-2');
   });
 });
 
