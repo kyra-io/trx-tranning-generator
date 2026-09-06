@@ -91,14 +91,14 @@ async function main() {
   })));
 
   if (!baseUrl) {
-    const configuredApiKey = process.env.OPENROUTER_API_KEY;
-    delete process.env.OPENROUTER_API_KEY;
+    const configuredApiKey = process.env.GROQ_API_KEY;
+    delete process.env.GROQ_API_KEY;
     try {
       const fallback = await generateWorkout(repeatedInput);
-      console.log('\nFallback without OpenRouter');
+      console.log('\nFallback without Groq');
       console.table([{ persistedId: fallback.id, ...summarize(fallback) }]);
     } finally {
-      if (configuredApiKey) process.env.OPENROUTER_API_KEY = configuredApiKey;
+      if (configuredApiKey) process.env.GROQ_API_KEY = configuredApiKey;
     }
   }
 }

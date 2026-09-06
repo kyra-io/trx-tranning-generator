@@ -1,7 +1,6 @@
 import { asc, eq, inArray } from 'drizzle-orm';
 
-// import { generateStructuredCompletion } from '@/lib/ai/openrouter.service';
-import { generateStructuredCompletion } from '@/lib/ai/amalia.service';
+import { generateStructuredCompletion } from '@/lib/ai/groq.service';
 import { db } from '@/lib/db';
 import {
   exerciseMuscles,
@@ -47,6 +46,7 @@ type CatalogExercise = CandidateExercise;
 
 const RECENT_WORKOUT_LIMIT = 5;
 const FALLBACK_HISTORY_LIMIT = 10;
+const MAX_AI_PLAN_ATTEMPTS = 2;
 const maximumDifficulty: Record<WorkoutLevel, number> = {
   beginner: 1,
   intermediate: 2,
@@ -266,7 +266,7 @@ Priorities, in order:
 6. Keep the total duration realistic and within the stated tolerance.
 7. Use only exercise IDs from the supplied eligible catalog.
 
-Warm-up is mandatory, proportional to the session, and represented separately. Core is not a mandatory phase; include core work only when it serves the requested workout. Avoid multiple near-identical variation groups unless there is a clear programming reason. Prefer each exercise once, but a purposeful repeat is allowed; never repeat it accidentally in consecutive positions.
+Warm-up is mandatory, proportional to the session, and represented separately. Core is not a mandatory phase; include core work only when it serves the requested workout. Avoid multiple near-identical variation groups unless there is a clear programming reason. Prefer each exercise once. A purposeful repeat is allowed, but never use the same exercise ID more than twice anywhere in the workout and never repeat it in consecutive positions.
 
 Interpret strength as generally favoring compound work, moderate/lower reps, and longer rest; hypertrophy as generally favoring more volume, compound plus isolation work, and useful supersets; general fitness permits more circuits, conditioning, and intervals. These are tendencies, not templates. Intensity may alter difficulty within the eligible catalog, volume, density, rest, unilateral work, and structure.
 
@@ -283,7 +283,6 @@ OUTPUT FORMAT — MANDATORY:
 - Before responding, silently verify that JSON.parse() can parse the complete output.`;
   const exerciseCatalog = eligibleExercises.map((exercise) => ({
     id: exercise.id,
-    slug: exercise.slug,
     name: exercise.name,
     primaryPattern: exercise.primaryPattern,
     force: exercise.force,
@@ -312,24 +311,51 @@ OUTPUT FORMAT — MANDATORY:
   };
 }
 
-async function generateAiPlan(
+export async function generateAiPlan(
   input: GenerateWorkoutInput,
   eligibleExercises: CatalogExercise[],
   recentWorkouts: RecentWorkoutContext[],
+  complete = generateStructuredCompletion,
 ) {
-  const completion = await generateStructuredCompletion({
-    ...buildWorkoutPrompts(input, eligibleExercises, recentWorkouts),
-    schemaName: 'trx_workout_plan',
-    jsonSchema: generatedWorkoutJsonSchema,
-  });
-  const workout = generatedWorkoutSchema.parse(completion.data);
-
-  validateGeneratedWorkoutBusinessRules(
-    workout,
-    new Set(eligibleExercises.map(({ id }) => id)),
-    input.durationMinutes,
+  const prompts = buildWorkoutPrompts(
+    input,
+    eligibleExercises,
+    recentWorkouts,
   );
-  return { workout, model: completion.model };
+  const allowedExerciseIds = new Set(
+    eligibleExercises.map(({ id }) => id),
+  );
+  let previousValidationError: string | null = null;
+
+  for (let attempt = 1; attempt <= MAX_AI_PLAN_ATTEMPTS; attempt += 1) {
+    const systemPrompt = previousValidationError
+      ? `${prompts.systemPrompt}
+
+IMPORTANT PLAN RETRY: The previous plan was rejected by the workout validator: ${previousValidationError}. Correct that issue while preserving all original requirements. Return a completely new valid plan.`
+      : prompts.systemPrompt;
+    const completion = await complete({
+      ...prompts,
+      systemPrompt,
+      schemaName: 'trx_workout_plan',
+      jsonSchema: generatedWorkoutJsonSchema,
+    });
+
+    try {
+      const workout = generatedWorkoutSchema.parse(completion.data);
+
+      validateGeneratedWorkoutBusinessRules(
+        workout,
+        allowedExerciseIds,
+        input.durationMinutes,
+      );
+      return { workout, model: completion.model };
+    } catch (error) {
+      if (attempt === MAX_AI_PLAN_ATTEMPTS) throw error;
+      previousValidationError = summarizeGenerationError(error);
+    }
+  }
+
+  throw new Error('AI returned no valid workout plan');
 }
 
 async function persistGeneratedWorkout(
@@ -432,6 +458,12 @@ export async function generateWorkout(input: GenerateWorkoutInput) {
     );
   }
 
+  const candidates = selectWorkoutCandidates({
+    input,
+    catalog,
+    recentWorkouts,
+  });
+
   let generatedWorkout: GeneratedWorkout;
   let aiModel: string | null = null;
   let fallbackUsed = false;
@@ -439,7 +471,7 @@ export async function generateWorkout(input: GenerateWorkoutInput) {
   try {
     const result = await generateAiPlan(
       input,
-      eligibleExercises,
+      candidates,
       plannerHistory,
     );
     generatedWorkout = result.workout;
@@ -450,12 +482,7 @@ export async function generateWorkout(input: GenerateWorkoutInput) {
       'AI generation failed, using deterministic fallback:',
       summarizeGenerationError(error),
     );
-    const fallbackCandidates = selectWorkoutCandidates({
-      input,
-      catalog,
-      recentWorkouts,
-    });
-    generatedWorkout = generateDeterministicPlan(input, fallbackCandidates);
+    generatedWorkout = generateDeterministicPlan(input, candidates);
   }
 
   logGenerationSummary({

@@ -3,8 +3,8 @@ import test from 'node:test';
 
 import {
   generateStructuredCompletion,
-  OpenRouterError,
-} from './openrouter.service';
+  GroqError,
+} from './groq.service';
 
 const completionInput = {
   systemPrompt: 'System prompt',
@@ -18,28 +18,28 @@ const completionInput = {
   },
 };
 
-async function withMockedOpenRouter(
+async function withMockedGroq(
   mockFetch: typeof fetch,
   callback: () => Promise<void>,
 ) {
   const originalFetch = globalThis.fetch;
-  const originalApiKey = process.env.OPENROUTER_API_KEY;
-  const originalModel = process.env.OPENROUTER_MODEL;
+  const originalApiKey = process.env.GROQ_API_KEY;
+  const originalModel = process.env.GROQ_MODEL;
 
   globalThis.fetch = mockFetch;
-  process.env.OPENROUTER_API_KEY = 'test-key';
-  process.env.OPENROUTER_MODEL = 'openrouter/free';
+  process.env.GROQ_API_KEY = 'test-key';
+  process.env.GROQ_MODEL = 'openai/gpt-oss-120b';
 
   try {
     await callback();
   } finally {
     globalThis.fetch = originalFetch;
 
-    if (originalApiKey === undefined) delete process.env.OPENROUTER_API_KEY;
-    else process.env.OPENROUTER_API_KEY = originalApiKey;
+    if (originalApiKey === undefined) delete process.env.GROQ_API_KEY;
+    else process.env.GROQ_API_KEY = originalApiKey;
 
-    if (originalModel === undefined) delete process.env.OPENROUTER_MODEL;
-    else process.env.OPENROUTER_MODEL = originalModel;
+    if (originalModel === undefined) delete process.env.GROQ_MODEL;
+    else process.env.GROQ_MODEL = originalModel;
   }
 }
 
@@ -52,32 +52,31 @@ test('sends a structured output request and returns the actual model', async () 
 
     return new Response(
       JSON.stringify({
-        model: 'meta-llama/llama-free',
+        model: 'openai/gpt-oss-120b',
         choices: [{ message: { content: JSON.stringify({ value: 'ok' }) } }],
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
     );
   };
 
-  await withMockedOpenRouter(mockFetch, async () => {
+  await withMockedGroq(mockFetch, async () => {
     const completion = await generateStructuredCompletion(completionInput);
     const headers = new Headers(requestInit?.headers);
     const body = JSON.parse(String(requestInit?.body));
 
-    assert.equal(requestUrl, 'https://openrouter.ai/api/v1/chat/completions');
+    assert.equal(requestUrl, 'https://api.groq.com/openai/v1/chat/completions');
     assert.equal(headers.get('Authorization'), 'Bearer test-key');
     assert.equal(headers.get('Content-Type'), 'application/json');
-    assert.equal(body.model, 'openrouter/free');
+    assert.equal(body.model, 'openai/gpt-oss-120b');
     assert.equal(body.response_format.type, 'json_schema');
     assert.equal(body.response_format.json_schema.strict, true);
-    assert.deepEqual(body.plugins, [{ id: 'response-healing' }]);
-    assert.equal(body.provider.require_parameters, true);
-    assert.equal(body.provider.sort, 'latency');
+    assert.equal(body.plugins, undefined);
+    assert.equal(body.provider, undefined);
     assert.equal(body.reasoning_effort, 'low');
     assert.equal(body.include_reasoning, false);
-    assert.equal(body.max_tokens, 4_000);
+    assert.equal(body.max_completion_tokens, 1_000);
     assert.deepEqual(completion.data, { value: 'ok' });
-    assert.equal(completion.model, 'meta-llama/llama-free');
+    assert.equal(completion.model, 'openai/gpt-oss-120b');
   });
 });
 
@@ -96,7 +95,7 @@ test('parses JSON wrapped in markdown or explanatory text', async () => {
       { status: 200 },
     );
 
-  await withMockedOpenRouter(mockFetch, async () => {
+  await withMockedGroq(mockFetch, async () => {
     const markdown = await generateStructuredCompletion(completionInput);
     const prose = await generateStructuredCompletion(completionInput);
 
@@ -124,7 +123,7 @@ test('parses text content blocks returned by a provider', async () => {
       { status: 200 },
     );
 
-  await withMockedOpenRouter(mockFetch, async () => {
+  await withMockedGroq(mockFetch, async () => {
     const completion = await generateStructuredCompletion(completionInput);
 
     assert.deepEqual(completion.data, { value: 'from blocks' });
@@ -155,12 +154,12 @@ test('retries truncated model output with reinforced instructions and more token
     );
   };
 
-  await withMockedOpenRouter(mockFetch, async () => {
+  await withMockedGroq(mockFetch, async () => {
     const completion = await generateStructuredCompletion(completionInput);
 
     assert.equal(callCount, 2);
-    assert.equal(requestBodies[0].max_tokens, 4_000);
-    assert.equal(requestBodies[1].max_tokens, 8_000);
+    assert.equal(requestBodies[0].max_completion_tokens, 1_000);
+    assert.equal(requestBodies[1].max_completion_tokens, 1_500);
     assert.match(
       String(
         (requestBodies[1].messages as { content: string }[])[0].content,
@@ -173,7 +172,7 @@ test('retries truncated model output with reinforced instructions and more token
 });
 
 test('rejects provider errors and malformed completion JSON', async () => {
-  await withMockedOpenRouter(
+  await withMockedGroq(
     async () => new Response('Unauthorized', { status: 401 }),
     async () => {
       await assert.rejects(
@@ -183,7 +182,7 @@ test('rejects provider errors and malformed completion JSON', async () => {
     },
   );
 
-  await withMockedOpenRouter(
+  await withMockedGroq(
     async () =>
       new Response(
         JSON.stringify({
@@ -197,6 +196,77 @@ test('rejects provider errors and malformed completion JSON', async () => {
         generateStructuredCompletion(completionInput),
         /malformed JSON \(model: test\/model, finish reason: unavailable\)/,
       );
+    },
+  );
+});
+
+test('includes safe Groq error details without echoing the request', async () => {
+  let callCount = 0;
+
+  await withMockedGroq(
+    async () => {
+      callCount += 1;
+
+      return new Response(
+        JSON.stringify({
+          error: {
+            code: 'json_validate_failed',
+            message: 'Failed to validate JSON output',
+          },
+        }),
+        { status: 400 },
+      );
+    },
+    async () => {
+      await assert.rejects(
+        generateStructuredCompletion(completionInput),
+        /status 400 \(json_validate_failed\): Failed to validate JSON output/,
+      );
+      assert.equal(callCount, 2);
+    },
+  );
+});
+
+test('retries Groq schema-validation failures with reinforced instructions', async () => {
+  let callCount = 0;
+  const requestBodies: Record<string, unknown>[] = [];
+
+  await withMockedGroq(
+    async (_input, init) => {
+      callCount += 1;
+      requestBodies.push(JSON.parse(String(init?.body)));
+
+      if (callCount === 1) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: 'json_validate_failed',
+              message: 'Generated JSON does not match the expected schema',
+            },
+          }),
+          { status: 400 },
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          model: 'openai/gpt-oss-120b',
+          choices: [{ message: { content: '{"value":"recovered"}' } }],
+        }),
+        { status: 200 },
+      );
+    },
+    async () => {
+      const completion = await generateStructuredCompletion(completionInput);
+
+      assert.equal(callCount, 2);
+      assert.match(
+        String(
+          (requestBodies[1].messages as { content: string }[])[0].content,
+        ),
+        /IMPORTANT RETRY[\s\S]*required schema/,
+      );
+      assert.deepEqual(completion.data, { value: 'recovered' });
     },
   );
 });
@@ -216,7 +286,7 @@ test('reports the model finish reason after the final invalid response', async (
       { status: 200 },
     );
 
-  await withMockedOpenRouter(mockFetch, async () => {
+  await withMockedGroq(mockFetch, async () => {
     await assert.rejects(
       generateStructuredCompletion(completionInput),
       /truncated JSON \(model: test\/truncated-model, finish reason: length\)/,
@@ -224,7 +294,7 @@ test('reports the model finish reason after the final invalid response', async (
   });
 });
 
-test('aborts an OpenRouter request after the configured timeout', async () => {
+test('aborts a Groq request after the configured timeout', async () => {
   const mockFetch: typeof fetch = async (_input, init) =>
     new Promise((_resolve, reject) => {
       init?.signal?.addEventListener('abort', () => {
@@ -232,12 +302,12 @@ test('aborts an OpenRouter request after the configured timeout', async () => {
       });
     });
 
-  await withMockedOpenRouter(mockFetch, async () => {
+  await withMockedGroq(mockFetch, async () => {
     await assert.rejects(
       generateStructuredCompletion({ ...completionInput, timeoutMs: 5 }),
       (error) =>
-        error instanceof OpenRouterError &&
-        error.message === 'OpenRouter request timed out',
+        error instanceof GroqError &&
+        error.message === 'Groq request timed out',
     );
   });
 });

@@ -6,7 +6,7 @@ A self-hosted, mobile-first TRX workout generator with optional AI-assisted work
 
 - Generates persisted TRX workouts by goal, duration, level, focus, and intensity
 - Uses a curated local exercise and muscle catalog
-- Supports AI-assisted composition through OpenRouter, with a deterministic fallback
+- Supports AI-assisted composition through Groq, with a deterministic fallback
 - Provides workout history, completion feedback, and workout deletion
 - Shows workout and exercise muscle heatmaps
 - Supports externally hosted exercise demonstration images
@@ -19,7 +19,7 @@ A self-hosted, mobile-first TRX workout generator with optional AI-assisted work
 - Tailwind CSS 4
 - PostgreSQL 17
 - Drizzle ORM
-- OpenRouter
+- Groq
 - Docker and Docker Compose
 
 ## Quick start
@@ -39,7 +39,7 @@ cp .env.example .env
 
 Edit `.env` and replace `POSTGRES_PASSWORD=change-me` with a strong password. `POSTGRES_DB` and `POSTGRES_USER` may keep their defaults.
 
-Set `OPENROUTER_API_KEY` to enable AI-assisted workout composition. Without a key, or if OpenRouter fails, the application uses its deterministic workout generator. `OPENROUTER_MODEL` selects the model sent to OpenRouter.
+Set `GROQ_API_KEY` to enable AI-assisted workout composition. Without a key, or if Groq fails, the application uses its deterministic workout generator. `GROQ_MODEL` selects the model sent to Groq and defaults to `openai/gpt-oss-120b`.
 
 ### 3. Build and start the services
 
@@ -168,8 +168,8 @@ The production image does not include the project package metadata, development 
 | `POSTGRES_DB` | No | PostgreSQL database name. Defaults to `trx` in Docker Compose. |
 | `POSTGRES_USER` | No | PostgreSQL user. Defaults to `trx` in Docker Compose. |
 | `POSTGRES_PASSWORD` | Yes | PostgreSQL password used by both services. No usable default is provided. |
-| `OPENROUTER_API_KEY` | No | Enables OpenRouter AI workout composition. The deterministic generator is used when omitted or when OpenRouter fails. |
-| `OPENROUTER_MODEL` | No | OpenRouter model identifier. Defaults to `openrouter/free` in Docker Compose. |
+| `GROQ_API_KEY` | No | Enables Groq AI workout composition. The deterministic generator is used when omitted or when Groq fails. |
+| `GROQ_MODEL` | No | Groq model identifier. Defaults to `openai/gpt-oss-120b`. |
 | `DATABASE_URL` | Docker-managed | PostgreSQL connection URL. Compose constructs it for the app; set it explicitly for host-side development and database scripts. |
 
 ## Persistence
@@ -184,15 +184,15 @@ PostgreSQL stores its data in the Docker named volume `postgres_data`. `docker c
 | `components/` | Mobile-first UI components grouped by feature. |
 | `lib/db/` | Drizzle connection, schema, and seed scripts. |
 | `lib/workouts/` | Workout selection, generation, persistence, and muscle summaries. |
-| `lib/ai/` | OpenRouter integration. |
+| `lib/ai/` | Groq integration. |
 | `drizzle/` | Versioned PostgreSQL migrations. |
 | `public/` | Static application assets. |
 | `Dockerfile` | Multi-stage production image. |
 | `docker-compose.yml` | Application, PostgreSQL, health checks, networking, and persistence. |
 
-## OpenRouter
+## Groq
 
-OpenRouter is used only for AI-assisted workout composition. Configure `OPENROUTER_API_KEY` and, optionally, `OPENROUTER_MODEL`. If the key is absent or the request fails, workout generation continues with the built-in deterministic fallback.
+Groq is used only for AI-assisted workout composition. Configure `GROQ_API_KEY` and, optionally, `GROQ_MODEL`. The default model is `openai/gpt-oss-120b`, which supports strict structured outputs. If the key is absent or the request fails, workout generation continues with the built-in deterministic fallback.
 
 ## Exercise Data & Visual References
 
@@ -238,9 +238,9 @@ Confirm that `POSTGRES_PASSWORD` is set in `.env` and that the existing volume w
 
 Stop the process using port 3003, or change the `3003:3000` port mapping in `docker-compose.yml`.
 
-### OpenRouter generation fails
+### Groq generation fails
 
-Check `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` in `.env`. Do not print or include the API key in logs or support output. The application will use deterministic generation when OpenRouter is unavailable.
+Check `GROQ_API_KEY` and `GROQ_MODEL` in `.env`. Do not print or include the API key in logs or support output. The application will use deterministic generation when Groq is unavailable.
 
 ## Commands cheat sheet
 

@@ -65,12 +65,67 @@ test('planner prompt receives compact full catalog metadata and five-workout con
     blockTypes: ['superset'],
   }]);
   assert.equal('family' in payload.eligibleExerciseCatalog[0], false);
+  assert.equal('slug' in payload.eligibleExerciseCatalog[0], false);
   assert.equal('activation' in payload.eligibleExerciseCatalog[0].muscles[0], false);
   assert.match(prompts.systemPrompt, /Core is not a mandatory phase/);
+  assert.match(
+    prompts.systemPrompt,
+    /never use the same exercise ID more than twice/,
+  );
   assert.match(prompts.systemPrompt, /OUTPUT FORMAT — MANDATORY/);
   assert.match(prompts.systemPrompt, /first character must be \{/);
   assert.match(prompts.systemPrompt, /Do not use Markdown/);
   assert.match(prompts.systemPrompt, /silently verify that JSON\.parse\(\)/);
+});
+
+test('retries a plan rejected for consecutive duplicate exercises', async () => {
+  const { generateAiPlan, getEligibleExerciseCatalog } = await servicePromise;
+  const eligible = getEligibleExerciseCatalog(catalog, 'intermediate');
+  const completionInputs: Array<{ systemPrompt: string }> = [];
+  let callCount = 0;
+  const exercise = (exerciseId: string) => ({
+    exerciseId,
+    sets: 1,
+    reps: 10,
+    repsPerSide: false,
+    durationSeconds: null,
+    restSeconds: 30,
+    notes: null,
+  });
+
+  const result = await generateAiPlan(
+    input,
+    eligible,
+    [],
+    async (completionInput) => {
+      completionInputs.push(completionInput);
+      callCount += 1;
+
+      return {
+        model: 'openai/gpt-oss-120b',
+        data: {
+          name: 'Test workout',
+          estimatedDurationMinutes: 30,
+          warmup: { exercises: [exercise('exercise-0')] },
+          blocks: [{
+            name: 'Strength',
+            type: 'straight_sets',
+            rounds: 1,
+            exercises: [
+              exercise(callCount === 1 ? 'exercise-0' : 'exercise-1'),
+            ],
+          }],
+        },
+      };
+    },
+  );
+
+  assert.equal(callCount, 2);
+  assert.match(
+    completionInputs[1].systemPrompt,
+    /IMPORTANT PLAN RETRY[\s\S]*duplicated consecutively/,
+  );
+  assert.equal(result.workout.blocks[0].exercises[0].exerciseId, 'exercise-1');
 });
 
 test('deterministic fallback uses dynamic block types and no mandatory core block', async () => {
