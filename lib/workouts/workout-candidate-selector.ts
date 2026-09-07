@@ -24,6 +24,7 @@ export type CandidateExercise = {
   mechanic: string | null;
   category: string | null;
   variationGroup: string | null;
+  equipment: string;
   difficulty: number;
   unilateral: boolean;
   muscles: Array<{
@@ -243,6 +244,38 @@ export function selectWorkoutCandidates({
   const selectedIds = new Set<string>();
   const selectedGroups = new Set<string>();
   const patterns = desiredPatternOrder(input.focus);
+  const availableEquipment = [
+    ...new Set(eligible.map((exercise) => exercise.equipment)),
+  ];
+  const equipmentAvailability = new Map(
+    availableEquipment.map((equipment) => [
+      equipment,
+      eligible.filter((exercise) => exercise.equipment === equipment).length,
+    ]),
+  );
+  const equipmentTargets = new Map(
+    availableEquipment.map((equipment) => [equipment, 0]),
+  );
+  const equipmentCounts = new Map(
+    availableEquipment.map((equipment) => [equipment, 0]),
+  );
+
+  // Allocate the pool one slot per equipment type at a time. This produces an
+  // even split when inventory permits and gracefully uses the remaining type
+  // when one side has fewer eligible exercises.
+  let allocatedEquipmentSlots = 0;
+  while (allocatedEquipmentSlots < targetSize) {
+    let allocatedInPass = false;
+    for (const equipment of availableEquipment) {
+      if (allocatedEquipmentSlots >= targetSize) break;
+      const currentTarget = equipmentTargets.get(equipment) ?? 0;
+      if (currentTarget >= (equipmentAvailability.get(equipment) ?? 0)) continue;
+      equipmentTargets.set(equipment, currentTarget + 1);
+      allocatedEquipmentSlots += 1;
+      allocatedInPass = true;
+    }
+    if (!allocatedInPass) break;
+  }
 
   const selectionScore = (exercise: CandidateExercise, variationRelaxed: boolean) => {
     const scored = baseScore(exercise, input, recentWorkouts).score;
@@ -275,11 +308,17 @@ export function selectWorkoutCandidates({
     pattern?: string,
     relaxVariation = false,
     focusOnly = false,
+    equipment?: string,
   ) => {
     const available = eligible.filter((exercise) => {
       if (selectedIds.has(exercise.id)) return false;
       if (!relaxVariation && selectedGroups.has(getVariationGroup(exercise))) return false;
       if (focusOnly && !matchesFocus(exercise, input.focus)) return false;
+      if (equipment !== undefined && exercise.equipment !== equipment) return false;
+      if (
+        (equipmentCounts.get(exercise.equipment) ?? 0) >=
+        (equipmentTargets.get(exercise.equipment) ?? targetSize)
+      ) return false;
       return pattern === undefined || normalize(exercise.primaryPattern) === pattern;
     });
 
@@ -299,8 +338,19 @@ export function selectWorkoutCandidates({
     });
     selectedIds.add(picked.id);
     selectedGroups.add(getVariationGroup(picked));
+    equipmentCounts.set(
+      picked.equipment,
+      (equipmentCounts.get(picked.equipment) ?? 0) + 1,
+    );
     return true;
   };
+
+  // Include every available equipment type before filling movement-pattern
+  // coverage, so mixed TRX/dumbbell workouts do not depend on chance alone.
+  for (const equipment of availableEquipment) {
+    if (selected.length >= targetSize) break;
+    choose(undefined, false, input.focus !== 'full_body', equipment);
+  }
 
   // Seed coverage first, then fill by weighted sampling. Full body therefore
   // exposes all available movement patterns before adding second choices.
@@ -318,5 +368,21 @@ export function selectWorkoutCandidates({
   }
   if (selected.length < targetSize) choose();
 
-  return selected;
+  // Interleave equipment types so the deterministic fallback remains balanced
+  // even though it uses only the first portion of this larger candidate pool.
+  const equipmentQueues = new Map(
+    availableEquipment.map((equipment) => [
+      equipment,
+      selected.filter((exercise) => exercise.equipment === equipment),
+    ]),
+  );
+  const interleaved: SelectedWorkoutCandidate[] = [];
+  while (interleaved.length < selected.length) {
+    for (const equipment of availableEquipment) {
+      const candidate = equipmentQueues.get(equipment)?.shift();
+      if (candidate) interleaved.push(candidate);
+    }
+  }
+
+  return interleaved;
 }

@@ -8,7 +8,7 @@ import {
 } from './workout-candidate-selector';
 
 const patterns = ['pull', 'push', 'squat', 'lunge', 'hinge', 'plank', 'rotate'];
-const catalog: CandidateExercise[] = Array.from({ length: 21 }, (_, index) => ({
+const catalog: CandidateExercise[] = Array.from({ length: 42 }, (_, index) => ({
   id: `exercise-${index}`,
   slug: index < 4 ? ['trx-row', 'trx-low-row', 'trx-mid-row', 'trx-high-row'][index] : `trx-move-${index}`,
   name: `Exercise ${index}`,
@@ -18,6 +18,7 @@ const catalog: CandidateExercise[] = Array.from({ length: 21 }, (_, index) => ({
   mechanic: index % 4 === 0 ? 'isolation' : 'compound',
   category: index % 5 === 0 ? 'conditioning' : 'strength',
   variationGroup: index < 4 ? 'row' : `move-${index}`,
+  equipment: index % 2 === 0 ? 'suspension_trainer' : 'dumbbell',
   difficulty: (index % 3) + 1,
   unilateral: false,
   muscles: [{ slug: `muscle-${index % 6}`, bodyRegion: null, role: 'primary', activation: 1 }],
@@ -58,6 +59,29 @@ test('enforces difficulty and distinct variation groups when alternatives exist'
   assert.equal(selected.length, 12);
   assert.ok(selected.every(({ difficulty }) => difficulty <= 2));
   assert.equal(new Set(groups).size, groups.length);
+  assert.deepEqual(
+    new Set(selected.map(({ equipment }) => equipment)),
+    new Set(['suspension_trainer', 'dumbbell']),
+  );
+  assert.equal(
+    selected.filter(({ equipment }) => equipment === 'suspension_trainer').length,
+    6,
+  );
+  assert.equal(
+    selected.filter(({ equipment }) => equipment === 'dumbbell').length,
+    6,
+  );
+  assert.deepEqual(
+    selected.slice(0, 6).map(({ equipment }) => equipment),
+    [
+      'suspension_trainer',
+      'dumbbell',
+      'suspension_trainer',
+      'dumbbell',
+      'suspension_trainer',
+      'dumbbell',
+    ],
+  );
 });
 
 test('weighted selection varies and strongly discourages the previous workout', () => {

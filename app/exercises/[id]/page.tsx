@@ -134,6 +134,8 @@ export default async function ExerciseDetailPage({
           <span>{humanize(exercise.primaryPattern)}</span>
           <span aria-hidden="true">·</span>
           <span>{difficulty}</span>
+          <span aria-hidden="true">·</span>
+          <span>{humanize(exercise.equipment)}</span>
           {exercise.unilateral ? (
             <span className="rounded-full border border-primary bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary-hover">
               Unilateral

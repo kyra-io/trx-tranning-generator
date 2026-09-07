@@ -1,0 +1,1 @@
+ALTER TABLE "exercises" ADD COLUMN "equipment" varchar(30) DEFAULT 'suspension_trainer' NOT NULL;

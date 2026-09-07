@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { AiProviderError } from '../ai/llm.service';
 import type { CandidateExercise } from './workout-candidate-selector';
 process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test';
 
@@ -16,6 +17,7 @@ const catalog: CandidateExercise[] = Array.from({ length: 8 }, (_, index) => ({
   mechanic: index % 3 ? 'compound' : 'isolation',
   category: index % 4 ? 'strength' : 'conditioning',
   variationGroup: `variation-${index}`,
+  equipment: index % 2 === 0 ? 'suspension_trainer' : 'dumbbell',
   difficulty: (index % 3) + 1,
   unilateral: index % 2 === 0,
   muscles: [{
@@ -67,7 +69,10 @@ test('planner prompt receives compact full catalog metadata and five-workout con
   assert.equal('family' in payload.eligibleExerciseCatalog[0], false);
   assert.equal('slug' in payload.eligibleExerciseCatalog[0], false);
   assert.equal('activation' in payload.eligibleExerciseCatalog[0].muscles[0], false);
+  assert.equal(payload.eligibleExerciseCatalog[0].equipment, 'suspension_trainer');
   assert.match(prompts.systemPrompt, /Core is not a mandatory phase/);
+  assert.match(prompts.systemPrompt, /never add a bench, chair, box, rack/);
+  assert.match(prompts.systemPrompt, /difference of only one/);
   assert.match(
     prompts.systemPrompt,
     /never use the same exercise ID more than twice/,
@@ -81,7 +86,11 @@ test('planner prompt receives compact full catalog metadata and five-workout con
 test('retries a plan rejected for consecutive duplicate exercises', async () => {
   const { generateAiPlan, getEligibleExerciseCatalog } = await servicePromise;
   const eligible = getEligibleExerciseCatalog(catalog, 'intermediate');
-  const completionInputs: Array<{ systemPrompt: string }> = [];
+  const completionInputs: Array<{
+    systemPrompt: string;
+    maxAttempts?: number;
+    maxTokens?: number;
+  }> = [];
   let callCount = 0;
   const exercise = (exerciseId: string) => ({
     exerciseId,
@@ -102,7 +111,7 @@ test('retries a plan rejected for consecutive duplicate exercises', async () => 
       callCount += 1;
 
       return {
-        model: 'openai/gpt-oss-120b',
+        model: 'mistral-small-2603',
         data: {
           name: 'Test workout',
           estimatedDurationMinutes: 30,
@@ -111,9 +120,9 @@ test('retries a plan rejected for consecutive duplicate exercises', async () => 
             name: 'Strength',
             type: 'straight_sets',
             rounds: 1,
-            exercises: [
-              exercise(callCount === 1 ? 'exercise-0' : 'exercise-1'),
-            ],
+            exercises: callCount === 1
+              ? [exercise('exercise-0'), exercise('exercise-1')]
+              : [exercise('exercise-1')],
           }],
         },
       };
@@ -121,11 +130,35 @@ test('retries a plan rejected for consecutive duplicate exercises', async () => 
   );
 
   assert.equal(callCount, 2);
+  assert.ok(completionInputs.every(({ maxAttempts }) => maxAttempts === 1));
+  assert.deepEqual(
+    completionInputs.map(({ maxTokens }) => maxTokens),
+    [1_500, 2_500],
+  );
   assert.match(
     completionInputs[1].systemPrompt,
     /IMPORTANT PLAN RETRY[\s\S]*duplicated consecutively/,
   );
   assert.equal(result.workout.blocks[0].exercises[0].exerciseId, 'exercise-1');
+});
+
+test('does not spend the second plan attempt after a provider rate limit', async () => {
+  const { generateAiPlan, getEligibleExerciseCatalog } = await servicePromise;
+  const eligible = getEligibleExerciseCatalog(catalog, 'intermediate');
+  let callCount = 0;
+
+  await assert.rejects(
+    generateAiPlan(input, eligible, [], async () => {
+      callCount += 1;
+      throw new AiProviderError(
+        'Mistral request failed with status 429',
+        'rate_limit_exceeded',
+      );
+    }),
+    (error) =>
+      error instanceof AiProviderError && error.code === 'rate_limit_exceeded',
+  );
+  assert.equal(callCount, 1);
 });
 
 test('deterministic fallback uses dynamic block types and no mandatory core block', async () => {
@@ -141,6 +174,17 @@ test('deterministic fallback uses dynamic block types and no mandatory core bloc
   );
 
   assert.ok(strength.warmup.exercises.length > 0);
+  const strengthExerciseIds = [
+    ...strength.warmup.exercises,
+    ...strength.blocks.flatMap(({ exercises }) => exercises),
+  ].map(({ exerciseId }) => exerciseId);
+  const strengthEquipment = strengthExerciseIds.map(
+    (exerciseId) => catalog.find(({ id }) => id === exerciseId)?.equipment,
+  );
+  assert.equal(
+    strengthEquipment.filter((equipment) => equipment === 'suspension_trainer').length,
+    strengthEquipment.filter((equipment) => equipment === 'dumbbell').length,
+  );
   assert.ok(strength.blocks.every(({ type }) => type !== ('core' as never)));
   assert.ok(hypertrophy.blocks.every(({ type }) => type === 'superset'));
   assert.ok(fitness.blocks.every(({ type }) => type === 'circuit'));

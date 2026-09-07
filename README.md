@@ -5,8 +5,9 @@ A self-hosted, mobile-first TRX workout generator with optional AI-assisted work
 ## Features
 
 - Generates persisted TRX workouts by goal, duration, level, focus, and intensity
-- Uses a curated local exercise and muscle catalog
-- Supports AI-assisted composition through Groq, with a deterministic fallback
+- Uses a curated local TRX, dumbbell, and muscle catalog
+- Keeps suspension-trainer and dumbbell movements evenly distributed without requiring a bench or other accessories
+- Supports AI-assisted composition through Mistral, with a deterministic fallback
 - Provides workout history, completion feedback, and workout deletion
 - Shows workout and exercise muscle heatmaps
 - Supports externally hosted exercise demonstration images
@@ -19,7 +20,7 @@ A self-hosted, mobile-first TRX workout generator with optional AI-assisted work
 - Tailwind CSS 4
 - PostgreSQL 17
 - Drizzle ORM
-- Groq
+- Mistral
 - Docker and Docker Compose
 
 ## Quick start
@@ -39,7 +40,7 @@ cp .env.example .env
 
 Edit `.env` and replace `POSTGRES_PASSWORD=change-me` with a strong password. `POSTGRES_DB` and `POSTGRES_USER` may keep their defaults.
 
-Set `GROQ_API_KEY` to enable AI-assisted workout composition. Without a key, or if Groq fails, the application uses its deterministic workout generator. `GROQ_MODEL` selects the model sent to Groq and defaults to `openai/gpt-oss-120b`.
+Set `MISTRAL_API_KEY` to enable AI-assisted workout composition. Without a key, or if Mistral fails, the application uses its deterministic workout generator. `MISTRAL_MODEL` selects the model sent to Mistral and defaults to `ministral-14b-latest`.
 
 ### 3. Build and start the services
 
@@ -55,7 +56,7 @@ For a new database, initialize the muscle and exercise catalog once:
 docker compose run --rm app ./docker-bootstrap.sh
 ```
 
-The bootstrap is idempotent. It seeds muscles, the complete local TRX exercise catalog, and verified external exercise image mappings. It does not add a development workout.
+The bootstrap is idempotent. It seeds muscles, the complete local TRX and dumbbell exercise catalog, and verified external exercise image mappings. It does not add a development workout.
 
 ### 4. Open the application
 
@@ -72,7 +73,7 @@ Catalog initialization is intentionally manual:
 docker compose run --rm app ./docker-bootstrap.sh
 ```
 
-Run it after the first startup of a new database. It safely seeds the system muscle data, the local TRX exercise catalog, and verified external exercise image mappings, and can be run again.
+Run it after the first startup of a new database. It safely seeds the system muscle data, the local TRX and dumbbell exercise catalog, and verified external exercise image mappings, and can be run again.
 
 The sample development workout is not part of the production bootstrap. Its npm script is documented under [Database commands](#database-commands).
 
@@ -155,7 +156,7 @@ These scripts run against the `DATABASE_URL` in the current environment:
 | `npm run db:studio` | Open Drizzle Studio. |
 | `npm run db:seed` | Seed the muscle catalog. |
 | `npm run db:seed:exercise` | Seed the legacy single exercise fixture. |
-| `npm run db:seed:exercises` | Seed the complete local TRX exercise catalog. |
+| `npm run db:seed:exercises` | Seed the complete local TRX and dumbbell exercise catalog. |
 | `npm run db:seed:exercise-images` | Add verified external image mappings for catalog exercises. |
 | `npm run db:seed:workout` | Recreate the `Full Body Strength` development workout. |
 
@@ -168,8 +169,8 @@ The production image does not include the project package metadata, development 
 | `POSTGRES_DB` | No | PostgreSQL database name. Defaults to `trx` in Docker Compose. |
 | `POSTGRES_USER` | No | PostgreSQL user. Defaults to `trx` in Docker Compose. |
 | `POSTGRES_PASSWORD` | Yes | PostgreSQL password used by both services. No usable default is provided. |
-| `GROQ_API_KEY` | No | Enables Groq AI workout composition. The deterministic generator is used when omitted or when Groq fails. |
-| `GROQ_MODEL` | No | Groq model identifier. Defaults to `openai/gpt-oss-120b`. |
+| `MISTRAL_API_KEY` | No | Enables Mistral AI workout composition. The deterministic generator is used when omitted or when Mistral fails. |
+| `MISTRAL_MODEL` | No | Mistral model identifier. Defaults to `ministral-14b-latest`. |
 | `DATABASE_URL` | Docker-managed | PostgreSQL connection URL. Compose constructs it for the app; set it explicitly for host-side development and database scripts. |
 
 ## Persistence
@@ -184,23 +185,23 @@ PostgreSQL stores its data in the Docker named volume `postgres_data`. `docker c
 | `components/` | Mobile-first UI components grouped by feature. |
 | `lib/db/` | Drizzle connection, schema, and seed scripts. |
 | `lib/workouts/` | Workout selection, generation, persistence, and muscle summaries. |
-| `lib/ai/` | Groq integration. |
+| `lib/ai/` | AI provider integration. |
 | `drizzle/` | Versioned PostgreSQL migrations. |
 | `public/` | Static application assets. |
 | `Dockerfile` | Multi-stage production image. |
 | `docker-compose.yml` | Application, PostgreSQL, health checks, networking, and persistence. |
 
-## Groq
+## Mistral
 
-Groq is used only for AI-assisted workout composition. Configure `GROQ_API_KEY` and, optionally, `GROQ_MODEL`. The default model is `openai/gpt-oss-120b`, which supports strict structured outputs. If the key is absent or the request fails, workout generation continues with the built-in deterministic fallback.
+Mistral is used only for AI-assisted workout composition. Configure `MISTRAL_API_KEY` and, optionally, `MISTRAL_MODEL`. The default model is `ministral-14b-latest`, which supports custom structured outputs. A generation uses at most two Mistral requests. When Mistral returns HTTP 429, the application observes `Retry-After` when present (or uses a 60-second default), skips further Mistral calls during that bounded cooldown, and continues immediately with the built-in deterministic fallback.
 
 ## Exercise Data & Visual References
 
-This project uses and adapts information from multiple external sources when building parts of its curated TRX exercise catalog. Not every exercise or catalog field comes directly from these sources.
+This project uses and adapts information from multiple external sources when building its curated TRX and dumbbell exercise catalog. Not every exercise or catalog field comes directly from these sources.
 
 ### Free Exercise DB
 
-[free-exercise-db](https://github.com/yuhonas/free-exercise-db) is used as a reference for parts of the exercise catalog. Depending on the exercise, referenced or adapted metadata may include exercise names, movement information, muscle groups, instructions, and image references.
+[free-exercise-db](https://github.com/yuhonas/free-exercise-db) is the source for the dumbbell exercises and is also used as a reference for parts of the TRX catalog. The dumbbell subset excludes movements that require a bench, chair, box, rack, ball, platform, or other accessory. Referenced or adapted metadata may include exercise names, movement information, muscle groups, instructions, and image references.
 
 The original dataset is distributed under the Unlicense. See the [free-exercise-db license](https://github.com/yuhonas/free-exercise-db/blob/main/LICENSE.md) for its terms.
 
@@ -238,9 +239,11 @@ Confirm that `POSTGRES_PASSWORD` is set in `.env` and that the existing volume w
 
 Stop the process using port 3003, or change the `3003:3000` port mapping in `docker-compose.yml`.
 
-### Groq generation fails
+### Mistral generation fails
 
-Check `GROQ_API_KEY` and `GROQ_MODEL` in `.env`. Do not print or include the API key in logs or support output. The application will use deterministic generation when Groq is unavailable.
+Check `MISTRAL_API_KEY` and `MISTRAL_MODEL` in `.env`. Do not print or include the API key in logs or support output. The application will use deterministic generation when Mistral is unavailable.
+
+For HTTP 429 errors, check the organization's current request, token-per-minute, and monthly token limits in the Mistral Admin limits page. The application does not retry a rate-limited request: it activates a temporary local cooldown and uses the deterministic fallback until that window expires. Restarting the container does not reset the provider-side quota.
 
 ## Commands cheat sheet
 

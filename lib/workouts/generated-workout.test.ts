@@ -95,6 +95,46 @@ test('rejects consecutive and excessive duplicate exercises', () => {
   );
 });
 
+test('requires every equipment type represented in the candidate pool', () => {
+  const equipment = new Map([
+    ['exercise-1', 'suspension_trainer'],
+    ['exercise-2', 'suspension_trainer'],
+    ['exercise-3', 'dumbbell'],
+  ]);
+
+  assert.throws(
+    () => validateGeneratedWorkoutBusinessRules(
+      createWorkout(),
+      new Set(equipment.keys()),
+      30,
+      equipment,
+    ),
+    /Workout must include equipment: dumbbell/,
+  );
+});
+
+test('requires a balanced distribution between available equipment types', () => {
+  const equipment = new Map([
+    ['exercise-1', 'suspension_trainer'],
+    ['exercise-2', 'dumbbell'],
+    ['exercise-3', 'suspension_trainer'],
+    ['exercise-4', 'suspension_trainer'],
+  ]);
+  const workout = createWorkout();
+  workout.blocks[0].exercises.push(exercise('exercise-3'));
+  workout.blocks[0].exercises.push(exercise('exercise-4'));
+
+  assert.throws(
+    () => validateGeneratedWorkoutBusinessRules(
+      workout,
+      new Set(equipment.keys()),
+      30,
+      equipment,
+    ),
+    /equipment distribution must be balanced/,
+  );
+});
+
 test('uses a centralized ten-percent duration tolerance with a three-minute floor', () => {
   const workout = createWorkout();
   workout.estimatedDurationMinutes = 34;

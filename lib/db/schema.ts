@@ -22,6 +22,9 @@ export const exercises = pgTable('exercises', {
   mechanic: varchar('mechanic', { length: 20 }),
   category: varchar('category', { length: 30 }),
   variationGroup: varchar('variation_group', { length: 100 }),
+  equipment: varchar('equipment', { length: 30 })
+    .notNull()
+    .default('suspension_trainer'),
 
   difficulty: integer('difficulty').notNull(),
 

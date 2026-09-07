@@ -18,6 +18,7 @@ type ExerciseSeed = {
   primaryPattern: 'pull' | 'push' | 'squat' | 'lunge' | 'hinge' | 'plank' | 'rotate';
   difficulty: 1 | 2 | 3;
   unilateral: boolean;
+  equipment?: 'suspension_trainer' | 'dumbbell';
   instructions: string;
   sourceName?: string;
   sourceUrl: string | null;
@@ -32,6 +33,9 @@ type ExerciseMetadata = {
 };
 
 const FREE_EXERCISE_DB_URL = 'https://github.com/yuhonas/free-exercise-db';
+
+const freeExerciseDbExerciseUrl = (id: string) =>
+  `${FREE_EXERCISE_DB_URL}/blob/main/exercises/${id}.json`;
 
 const m = (
   slug: string,
@@ -260,6 +264,90 @@ const catalog: ExerciseSeed[] = [
     sourceUrl: null,
     muscles: [m('obliques', 'primary', 1), m('abs', 'secondary', 0.7), m('lower-back', 'secondary', 0.5), m('rear-delts', 'stabilizer', 0.3), m('glutes', 'stabilizer', 0.3)],
   },
+  {
+    slug: 'dumbbell-squat', name: 'Dumbbell Squat', family: 'squat', primaryPattern: 'squat', difficulty: 1, unilateral: false, equipment: 'dumbbell',
+    instructions: 'Stand tall with one dumbbell in each hand by your sides and feet around shoulder width. Sit your hips down while keeping your torso braced and knees tracking over your feet. Drive through the floor to stand tall.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Dumbbell_Squat'),
+    muscles: [m('quads', 'primary', 1), m('glutes', 'primary', 0.85), m('hamstrings', 'secondary', 0.6), m('calves', 'secondary', 0.35), m('lower-back', 'stabilizer', 0.4), m('abs', 'stabilizer', 0.35)],
+  },
+  {
+    slug: 'dumbbell-forward-lunge', name: 'Dumbbell Forward Lunge', family: 'lunge', primaryPattern: 'lunge', difficulty: 1, unilateral: true, equipment: 'dumbbell',
+    instructions: 'Stand upright with one dumbbell in each hand by your sides. Step forward and lower both knees while keeping the front foot planted and torso tall. Push through the front foot to return, then repeat on the other side.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Dumbbell_Lunges'),
+    muscles: [m('quads', 'primary', 1), m('glutes', 'primary', 0.85), m('hamstrings', 'secondary', 0.6), m('calves', 'stabilizer', 0.35), m('abs', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'dumbbell-reverse-lunge', name: 'Dumbbell Reverse Lunge', family: 'lunge', primaryPattern: 'lunge', difficulty: 2, unilateral: true, equipment: 'dumbbell',
+    instructions: 'Stand upright with one dumbbell in each hand by your sides. Step one leg backward and lower under control while keeping the front foot planted and torso tall. Drive through the front foot to return and alternate sides.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Dumbbell_Rear_Lunge'),
+    muscles: [m('quads', 'primary', 1), m('glutes', 'primary', 0.9), m('hamstrings', 'secondary', 0.65), m('calves', 'stabilizer', 0.35), m('abs', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'dumbbell-clean', name: 'Dumbbell Clean', family: 'hinge', primaryPattern: 'hinge', difficulty: 2, unilateral: false, equipment: 'dumbbell',
+    instructions: 'Stand with a dumbbell in each hand and hinge at the hips and knees to lower the weights. Extend the hips and knees powerfully to accelerate the dumbbells upward. Receive them at shoulder height with soft knees, then stand tall.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Dumbbell_Clean'),
+    muscles: [m('hamstrings', 'primary', 1), m('glutes', 'primary', 0.9), m('quads', 'secondary', 0.7), m('calves', 'secondary', 0.5), m('forearms', 'secondary', 0.5), m('lower-back', 'stabilizer', 0.55), m('front-delts', 'stabilizer', 0.4), m('abs', 'stabilizer', 0.4)],
+  },
+  {
+    slug: 'dumbbell-bent-over-row', name: 'Bent Over Two-Dumbbell Row', family: 'row', primaryPattern: 'pull', difficulty: 1, unilateral: false, equipment: 'dumbbell',
+    instructions: 'Hold one dumbbell in each hand, soften your knees, and hinge forward with a straight, braced back. Pull both dumbbells toward your sides while keeping your torso still. Squeeze your back briefly and lower the weights under control.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Bent_Over_Two-Dumbbell_Row'),
+    muscles: [m('upper-back', 'primary', 1), m('lats', 'primary', 0.85), m('biceps', 'secondary', 0.65), m('rear-delts', 'secondary', 0.5), m('lower-back', 'stabilizer', 0.5), m('abs', 'stabilizer', 0.35)],
+  },
+  {
+    slug: 'dumbbell-floor-press', name: 'Dumbbell Floor Press', family: 'press', primaryPattern: 'push', difficulty: 2, unilateral: false, equipment: 'dumbbell',
+    instructions: 'Lie on the floor with knees bent and a dumbbell in each hand above your chest. Lower the weights until your upper arms gently contact the floor. Pause, then press the dumbbells upward until your elbows are extended.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Dumbbell_Floor_Press'),
+    muscles: [m('triceps', 'primary', 1), m('chest', 'primary', 0.85), m('front-delts', 'secondary', 0.6), m('abs', 'stabilizer', 0.25)],
+  },
+  {
+    slug: 'dumbbell-standing-press', name: 'Standing Dumbbell Press', family: 'press', primaryPattern: 'push', difficulty: 1, unilateral: false, equipment: 'dumbbell',
+    instructions: 'Stand with feet around shoulder width and hold a dumbbell in each hand at head height. Brace your trunk and press both weights directly overhead without using leg drive or leaning back. Pause, then lower them under control.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Standing_Dumbbell_Press'),
+    muscles: [m('front-delts', 'primary', 1), m('side-delts', 'primary', 0.8), m('triceps', 'secondary', 0.7), m('abs', 'stabilizer', 0.45), m('glutes', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'dumbbell-biceps-curl', name: 'Dumbbell Biceps Curl', family: 'curl', primaryPattern: 'pull', difficulty: 1, unilateral: false, equipment: 'dumbbell',
+    instructions: 'Stand tall with one dumbbell in each hand and palms facing forward. Keep your upper arms still as you curl both weights toward shoulder height. Squeeze your biceps briefly, then lower the dumbbells slowly.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Dumbbell_Bicep_Curl'),
+    muscles: [m('biceps', 'primary', 1), m('forearms', 'secondary', 0.55), m('abs', 'stabilizer', 0.25)],
+  },
+  {
+    slug: 'dumbbell-alternate-hammer-curl', name: 'Alternate Hammer Curl', family: 'curl', primaryPattern: 'pull', difficulty: 1, unilateral: true, equipment: 'dumbbell',
+    instructions: 'Stand tall with one dumbbell in each hand, palms facing your torso, and elbows close to your sides. Curl one weight toward shoulder height without moving the upper arm. Lower it under control and alternate arms.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Alternate_Hammer_Curl'),
+    muscles: [m('biceps', 'primary', 1), m('forearms', 'primary', 0.7), m('abs', 'stabilizer', 0.25)],
+  },
+  {
+    slug: 'dumbbell-standing-triceps-extension', name: 'Standing Dumbbell Triceps Extension', family: 'press', primaryPattern: 'push', difficulty: 1, unilateral: false, equipment: 'dumbbell',
+    instructions: 'Stand tall and hold one dumbbell with both hands overhead. Keep your upper arms close to your head as you bend the elbows and lower the weight behind you. Extend your elbows to raise the dumbbell without moving your upper arms.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Standing_Dumbbell_Triceps_Extension'),
+    muscles: [m('triceps', 'primary', 1), m('front-delts', 'stabilizer', 0.35), m('abs', 'stabilizer', 0.35)],
+  },
+  {
+    slug: 'dumbbell-lateral-raise', name: 'Side Lateral Raise', family: 'press', primaryPattern: 'push', difficulty: 1, unilateral: false, equipment: 'dumbbell',
+    instructions: 'Stand tall with one dumbbell in each hand by your sides. With a slight bend in your elbows and no torso swing, raise the weights out to the sides until your arms are around parallel to the floor. Lower them slowly.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Side_Lateral_Raise'),
+    muscles: [m('side-delts', 'primary', 1), m('front-delts', 'secondary', 0.35), m('upper-back', 'stabilizer', 0.3), m('abs', 'stabilizer', 0.25)],
+  },
+  {
+    slug: 'dumbbell-shrug', name: 'Dumbbell Shrug', family: 'row', primaryPattern: 'pull', difficulty: 1, unilateral: false, equipment: 'dumbbell',
+    instructions: 'Stand tall with one dumbbell in each hand and arms extended by your sides. Elevate your shoulders straight upward while keeping your elbows extended. Pause briefly at the top and lower under control.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Dumbbell_Shrug'),
+    muscles: [m('upper-back', 'primary', 1), m('forearms', 'stabilizer', 0.35), m('abs', 'stabilizer', 0.25)],
+  },
+  {
+    slug: 'dumbbell-side-bend', name: 'Dumbbell Side Bend', family: 'rotation', primaryPattern: 'rotate', difficulty: 1, unilateral: true, equipment: 'dumbbell',
+    instructions: 'Stand tall with a dumbbell in one hand and feet around shoulder width. Keep the rest of your body still as you bend sideways at the waist, then use your trunk to return upright. Complete both sides with the dumbbell in the opposite hand.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Dumbbell_Side_Bend'),
+    muscles: [m('obliques', 'primary', 1), m('abs', 'secondary', 0.65), m('lower-back', 'stabilizer', 0.35)],
+  },
+  {
+    slug: 'dumbbell-spell-caster', name: 'Dumbbell Spell Caster', family: 'rotation', primaryPattern: 'rotate', difficulty: 1, unilateral: false, equipment: 'dumbbell',
+    instructions: 'Stand with a wide stance and hold one dumbbell in each hand with straight arms. Rotate your torso to bring both weights beside one hip. Keep the weights controlled as you rotate across to the opposite side and continue alternating.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Spell_Caster'),
+    muscles: [m('abs', 'primary', 1), m('obliques', 'primary', 0.9), m('glutes', 'secondary', 0.45), m('front-delts', 'secondary', 0.4), m('lower-back', 'stabilizer', 0.35)],
+  },
 ];
 
 // Metadata belongs to the local TRX catalog. Keeping it keyed by slug makes
@@ -300,6 +388,20 @@ const metadataBySlug = {
   'trx-mountain-climbers': { force: 'mixed', mechanic: 'compound', category: 'conditioning', variationGroup: 'mountain-climber' },
   'trx-standing-rollout': { force: 'static', mechanic: 'compound', category: 'core', variationGroup: 'rollout' },
   'trx-torso-rotation': { force: 'pull', mechanic: 'compound', category: 'core', variationGroup: 'torso-rotation' },
+  'dumbbell-squat': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'squat' },
+  'dumbbell-forward-lunge': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'forward-lunge' },
+  'dumbbell-reverse-lunge': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'reverse-lunge' },
+  'dumbbell-clean': { force: 'pull', mechanic: 'compound', category: 'strength', variationGroup: 'clean' },
+  'dumbbell-bent-over-row': { force: 'pull', mechanic: 'compound', category: 'strength', variationGroup: 'row' },
+  'dumbbell-floor-press': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'chest-press' },
+  'dumbbell-standing-press': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'overhead-press' },
+  'dumbbell-biceps-curl': { force: 'pull', mechanic: 'isolation', category: 'strength', variationGroup: 'biceps-curl' },
+  'dumbbell-alternate-hammer-curl': { force: 'pull', mechanic: 'isolation', category: 'strength', variationGroup: 'hammer-curl' },
+  'dumbbell-standing-triceps-extension': { force: 'push', mechanic: 'isolation', category: 'strength', variationGroup: 'triceps-press' },
+  'dumbbell-lateral-raise': { force: 'push', mechanic: 'isolation', category: 'strength', variationGroup: 'lateral-raise' },
+  'dumbbell-shrug': { force: 'pull', mechanic: 'isolation', category: 'strength', variationGroup: 'shrug' },
+  'dumbbell-side-bend': { force: 'pull', mechanic: 'isolation', category: 'core', variationGroup: 'side-bend' },
+  'dumbbell-spell-caster': { force: 'pull', mechanic: 'compound', category: 'core', variationGroup: 'spell-caster' },
 } satisfies Record<string, ExerciseMetadata>;
 
 async function seedExercises() {
@@ -330,8 +432,15 @@ async function seedExercises() {
     let createdMappings = 0;
 
     for (const exerciseData of catalog) {
-      const { muscles: muscleData, sourceName = 'TRX Training', ...values } = exerciseData;
+      const {
+        muscles: muscleData,
+        sourceName = exerciseData.equipment === 'dumbbell'
+          ? 'free-exercise-db'
+          : 'TRX Training',
+        ...values
+      } = exerciseData;
       const metadata = metadataBySlug[exerciseData.slug as keyof typeof metadataBySlug];
+      const equipment = exerciseData.equipment ?? 'suspension_trainer';
 
       if (!metadata) {
         throw new Error(`Cannot seed exercise catalog. Missing metadata for ${exerciseData.slug}`);
@@ -339,10 +448,16 @@ async function seedExercises() {
 
       const [exercise] = await tx
         .insert(exercises)
-        .values({ ...values, ...metadata, sourceName })
+        .values({ ...values, ...metadata, equipment, sourceName })
         .onConflictDoUpdate({
           target: exercises.slug,
-          set: { ...values, ...metadata, sourceName, updatedAt: new Date() },
+          set: {
+            ...values,
+            ...metadata,
+            equipment,
+            sourceName,
+            updatedAt: new Date(),
+          },
         })
         .returning({ id: exercises.id });
 
@@ -364,7 +479,7 @@ async function seedExercises() {
     return createdMappings;
   });
 
-  console.log('Seeded TRX exercise catalog');
+  console.log('Seeded TRX and dumbbell exercise catalog');
   console.log(`Exercises processed: ${catalog.length}`);
   console.log(`Muscle mappings created: ${mappingCount}`);
 }

@@ -1,6 +1,9 @@
 import { asc, eq, inArray } from 'drizzle-orm';
 
-import { generateStructuredCompletion } from '@/lib/ai/groq.service';
+import {
+  AiProviderError,
+  generateStructuredCompletion,
+} from '@/lib/ai/llm.service';
 import { db } from '@/lib/db';
 import {
   exerciseMuscles,
@@ -47,6 +50,7 @@ type CatalogExercise = CandidateExercise;
 const RECENT_WORKOUT_LIMIT = 5;
 const FALLBACK_HISTORY_LIMIT = 10;
 const MAX_AI_PLAN_ATTEMPTS = 2;
+const AI_PLAN_MAX_TOKENS = [1_500, 2_500] as const;
 const maximumDifficulty: Record<WorkoutLevel, number> = {
   beginner: 1,
   intermediate: 2,
@@ -101,6 +105,7 @@ async function loadExerciseCatalog(): Promise<CatalogExercise[]> {
       mechanic: exercises.mechanic,
       category: exercises.category,
       variationGroup: exercises.variationGroup,
+      equipment: exercises.equipment,
       difficulty: exercises.difficulty,
       unilateral: exercises.unilateral,
     })
@@ -254,7 +259,7 @@ export function buildWorkoutPrompts(
   recentWorkouts: RecentWorkoutContext[],
 ) {
   const tolerance = getDurationTolerance(input.durationMinutes);
-  const systemPrompt = `You are responsible for designing a complete TRX workout from a closed exercise catalog.
+  const systemPrompt = `You are responsible for designing a complete mixed TRX suspension-trainer and dumbbell workout from a closed exercise catalog.
 Choose the exercises, their order and prescriptions, and the workout's block structure yourself.
 
 Priorities, in order:
@@ -265,6 +270,7 @@ Priorities, in order:
 5. Create meaningful variation from recent workouts. Repetition is allowed when it is a sound programming choice; novelty is secondary to coherence.
 6. Keep the total duration realistic and within the stated tolerance.
 7. Use only exercise IDs from the supplied eligible catalog.
+8. Keep the number of TRX and dumbbell exercise entries as even as possible: use the same number when the total is even, or allow a difference of only one when it is odd. Dumbbell exercises must require only dumbbells and the floor: never add a bench, chair, box, rack, ball, platform, or other accessory.
 
 Warm-up is mandatory, proportional to the session, and represented separately. Core is not a mandatory phase; include core work only when it serves the requested workout. Avoid multiple near-identical variation groups unless there is a clear programming reason. Prefer each exercise once. A purposeful repeat is allowed, but never use the same exercise ID more than twice anywhere in the workout and never repeat it in consecutive positions.
 
@@ -291,6 +297,7 @@ OUTPUT FORMAT — MANDATORY:
     difficulty: exercise.difficulty,
     unilateral: exercise.unilateral,
     variationGroup: exercise.variationGroup,
+    equipment: exercise.equipment,
     muscles: exercise.muscles.map(({ slug, role }) => ({ slug, role })),
   }));
   const history = recentWorkouts.map((workout) => ({
@@ -333,24 +340,34 @@ export async function generateAiPlan(
 
 IMPORTANT PLAN RETRY: The previous plan was rejected by the workout validator: ${previousValidationError}. Correct that issue while preserving all original requirements. Return a completely new valid plan.`
       : prompts.systemPrompt;
-    const completion = await complete({
-      ...prompts,
-      systemPrompt,
-      schemaName: 'trx_workout_plan',
-      jsonSchema: generatedWorkoutJsonSchema,
-    });
-
     try {
+      const completion = await complete({
+        ...prompts,
+        systemPrompt,
+        schemaName: 'trx_workout_plan',
+        jsonSchema: generatedWorkoutJsonSchema,
+        // Plan validation owns the shared two-call retry budget. Prevent the
+        // provider client from multiplying it with its own nested retries.
+        maxAttempts: 1,
+        maxTokens: AI_PLAN_MAX_TOKENS[attempt - 1],
+      });
       const workout = generatedWorkoutSchema.parse(completion.data);
 
       validateGeneratedWorkoutBusinessRules(
         workout,
         allowedExerciseIds,
         input.durationMinutes,
+        new Map(
+          eligibleExercises.map(({ id, equipment }) => [id, equipment]),
+        ),
       );
       return { workout, model: completion.model };
     } catch (error) {
       if (attempt === MAX_AI_PLAN_ATTEMPTS) throw error;
+      if (
+        error instanceof AiProviderError &&
+        !['invalid_output', 'json_validate_failed'].includes(error.code)
+      ) throw error;
       previousValidationError = summarizeGenerationError(error);
     }
   }

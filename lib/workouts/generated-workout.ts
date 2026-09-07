@@ -171,6 +171,7 @@ export function validateGeneratedWorkoutBusinessRules(
   workout: GeneratedWorkout,
   allowedExerciseIds: ReadonlySet<string>,
   requestedDurationMinutes: number,
+  equipmentByExerciseId?: ReadonlyMap<string, string>,
 ) {
   const exerciseIds = [
     ...workout.warmup.exercises,
@@ -180,6 +181,41 @@ export function validateGeneratedWorkoutBusinessRules(
   for (const exerciseId of exerciseIds) {
     if (!allowedExerciseIds.has(exerciseId)) {
       throw new Error(`Exercise ${exerciseId} is not allowed`);
+    }
+  }
+
+  if (equipmentByExerciseId) {
+    const availableEquipment = new Set(equipmentByExerciseId.values());
+    const selectedEquipment = new Set(
+      exerciseIds.flatMap((exerciseId) => {
+        const equipment = equipmentByExerciseId.get(exerciseId);
+        return equipment ? [equipment] : [];
+      }),
+    );
+    const missingEquipment = [...availableEquipment].filter(
+      (equipment) => !selectedEquipment.has(equipment),
+    );
+
+    if (missingEquipment.length > 0) {
+      throw new Error(
+        `Workout must include equipment: ${missingEquipment.join(', ')}`,
+      );
+    }
+
+    const equipmentCounts = exerciseIds.reduce((counts, exerciseId) => {
+      const equipment = equipmentByExerciseId.get(exerciseId);
+      if (equipment) counts.set(equipment, (counts.get(equipment) ?? 0) + 1);
+      return counts;
+    }, new Map<string, number>());
+    const selectedCounts = [...availableEquipment].map(
+      (equipment) => equipmentCounts.get(equipment) ?? 0,
+    );
+    if (Math.max(...selectedCounts) - Math.min(...selectedCounts) > 1) {
+      throw new Error(
+        `Workout equipment distribution must be balanced: ${[...availableEquipment]
+          .map((equipment) => `${equipment}=${equipmentCounts.get(equipment) ?? 0}`)
+          .join(', ')}`,
+      );
     }
   }
 

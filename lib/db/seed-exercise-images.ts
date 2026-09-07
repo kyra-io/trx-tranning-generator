@@ -166,6 +166,20 @@ const imageMappings: ExerciseImageMapping[] = [
   freeExerciseDbMapping('trx-push-up-side-plank', 'Push_Up_to_Side_Plank', 0),
   freeExerciseDbMapping('trx-close-grip-push-up', 'Push-Ups_-_Close_Triceps_Position', 0),
   freeExerciseDbMapping('trx-standing-rollout', 'Suspended_Fallout', 0),
+  freeExerciseDbMapping('dumbbell-squat', 'Dumbbell_Squat', 0),
+  freeExerciseDbMapping('dumbbell-forward-lunge', 'Dumbbell_Lunges', 0),
+  freeExerciseDbMapping('dumbbell-reverse-lunge', 'Dumbbell_Rear_Lunge', 0),
+  freeExerciseDbMapping('dumbbell-clean', 'Dumbbell_Clean', 0),
+  freeExerciseDbMapping('dumbbell-bent-over-row', 'Bent_Over_Two-Dumbbell_Row', 0),
+  freeExerciseDbMapping('dumbbell-floor-press', 'Dumbbell_Floor_Press', 0),
+  freeExerciseDbMapping('dumbbell-standing-press', 'Standing_Dumbbell_Press', 0),
+  freeExerciseDbMapping('dumbbell-biceps-curl', 'Dumbbell_Bicep_Curl', 0),
+  freeExerciseDbMapping('dumbbell-alternate-hammer-curl', 'Alternate_Hammer_Curl', 0),
+  freeExerciseDbMapping('dumbbell-standing-triceps-extension', 'Standing_Dumbbell_Triceps_Extension', 0),
+  freeExerciseDbMapping('dumbbell-lateral-raise', 'Side_Lateral_Raise', 0),
+  freeExerciseDbMapping('dumbbell-shrug', 'Dumbbell_Shrug', 0),
+  freeExerciseDbMapping('dumbbell-side-bend', 'Dumbbell_Side_Bend', 0),
+  freeExerciseDbMapping('dumbbell-spell-caster', 'Spell_Caster', 0),
 ];
 
 const rejectedMappings: ExerciseImageMapping[] = [

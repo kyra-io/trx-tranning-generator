@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  AiProviderError,
   generateStructuredCompletion,
-  GroqError,
-} from './groq.service';
+  resetAiRateLimitCooldown,
+} from './llm.service';
 
 const completionInput = {
   systemPrompt: 'System prompt',
@@ -18,28 +19,30 @@ const completionInput = {
   },
 };
 
-async function withMockedGroq(
+async function withMockedMistral(
   mockFetch: typeof fetch,
   callback: () => Promise<void>,
 ) {
   const originalFetch = globalThis.fetch;
-  const originalApiKey = process.env.GROQ_API_KEY;
-  const originalModel = process.env.GROQ_MODEL;
+  const originalApiKey = process.env.MISTRAL_API_KEY;
+  const originalModel = process.env.MISTRAL_MODEL;
 
   globalThis.fetch = mockFetch;
-  process.env.GROQ_API_KEY = 'test-key';
-  process.env.GROQ_MODEL = 'openai/gpt-oss-120b';
+  process.env.MISTRAL_API_KEY = 'test-key';
+  process.env.MISTRAL_MODEL = 'ministral-14b-latest';
+  resetAiRateLimitCooldown();
 
   try {
     await callback();
   } finally {
+    resetAiRateLimitCooldown();
     globalThis.fetch = originalFetch;
 
-    if (originalApiKey === undefined) delete process.env.GROQ_API_KEY;
-    else process.env.GROQ_API_KEY = originalApiKey;
+    if (originalApiKey === undefined) delete process.env.MISTRAL_API_KEY;
+    else process.env.MISTRAL_API_KEY = originalApiKey;
 
-    if (originalModel === undefined) delete process.env.GROQ_MODEL;
-    else process.env.GROQ_MODEL = originalModel;
+    if (originalModel === undefined) delete process.env.MISTRAL_MODEL;
+    else process.env.MISTRAL_MODEL = originalModel;
   }
 }
 
@@ -52,32 +55,64 @@ test('sends a structured output request and returns the actual model', async () 
 
     return new Response(
       JSON.stringify({
-        model: 'openai/gpt-oss-120b',
+        model: 'mistral-small-2603',
         choices: [{ message: { content: JSON.stringify({ value: 'ok' }) } }],
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } },
     );
   };
 
-  await withMockedGroq(mockFetch, async () => {
+  await withMockedMistral(mockFetch, async () => {
     const completion = await generateStructuredCompletion(completionInput);
     const headers = new Headers(requestInit?.headers);
     const body = JSON.parse(String(requestInit?.body));
 
-    assert.equal(requestUrl, 'https://api.groq.com/openai/v1/chat/completions');
+    assert.equal(requestUrl, 'https://api.mistral.ai/v1/chat/completions');
     assert.equal(headers.get('Authorization'), 'Bearer test-key');
     assert.equal(headers.get('Content-Type'), 'application/json');
-    assert.equal(body.model, 'openai/gpt-oss-120b');
+    assert.equal(body.model, 'ministral-14b-latest');
     assert.equal(body.response_format.type, 'json_schema');
     assert.equal(body.response_format.json_schema.strict, true);
     assert.equal(body.plugins, undefined);
     assert.equal(body.provider, undefined);
-    assert.equal(body.reasoning_effort, 'low');
-    assert.equal(body.include_reasoning, false);
-    assert.equal(body.max_completion_tokens, 1_000);
+    assert.equal(body.reasoning_effort, undefined);
+    assert.equal(body.include_reasoning, undefined);
+    assert.equal(body.max_completion_tokens, undefined);
+    assert.equal(body.max_tokens, 1_000);
     assert.deepEqual(completion.data, { value: 'ok' });
-    assert.equal(completion.model, 'openai/gpt-oss-120b');
+    assert.equal(completion.model, 'mistral-small-2603');
   });
+});
+
+test('activates a cooldown after a rate-limit response', async () => {
+  let callCount = 0;
+
+  await withMockedMistral(
+    async () => {
+      callCount += 1;
+      return new Response(
+        JSON.stringify({
+          object: 'error',
+          type: 'rate_limit_error',
+          message: 'Token limit reached',
+        }),
+        { status: 429, headers: { 'retry-after': '30' } },
+      );
+    },
+    async () => {
+      await assert.rejects(
+        generateStructuredCompletion(completionInput),
+        (error) =>
+          error instanceof AiProviderError &&
+          error.code === 'rate_limit_exceeded',
+      );
+      await assert.rejects(
+        generateStructuredCompletion(completionInput),
+        /Mistral rate limit cooldown active \(30s remaining\)/,
+      );
+      assert.equal(callCount, 1);
+    },
+  );
 });
 
 test('parses JSON wrapped in markdown or explanatory text', async () => {
@@ -95,7 +130,7 @@ test('parses JSON wrapped in markdown or explanatory text', async () => {
       { status: 200 },
     );
 
-  await withMockedGroq(mockFetch, async () => {
+  await withMockedMistral(mockFetch, async () => {
     const markdown = await generateStructuredCompletion(completionInput);
     const prose = await generateStructuredCompletion(completionInput);
 
@@ -123,7 +158,7 @@ test('parses text content blocks returned by a provider', async () => {
       { status: 200 },
     );
 
-  await withMockedGroq(mockFetch, async () => {
+  await withMockedMistral(mockFetch, async () => {
     const completion = await generateStructuredCompletion(completionInput);
 
     assert.deepEqual(completion.data, { value: 'from blocks' });
@@ -154,12 +189,12 @@ test('retries truncated model output with reinforced instructions and more token
     );
   };
 
-  await withMockedGroq(mockFetch, async () => {
+  await withMockedMistral(mockFetch, async () => {
     const completion = await generateStructuredCompletion(completionInput);
 
     assert.equal(callCount, 2);
-    assert.equal(requestBodies[0].max_completion_tokens, 1_000);
-    assert.equal(requestBodies[1].max_completion_tokens, 1_500);
+    assert.equal(requestBodies[0].max_tokens, 1_000);
+    assert.equal(requestBodies[1].max_tokens, 1_500);
     assert.match(
       String(
         (requestBodies[1].messages as { content: string }[])[0].content,
@@ -172,7 +207,7 @@ test('retries truncated model output with reinforced instructions and more token
 });
 
 test('rejects provider errors and malformed completion JSON', async () => {
-  await withMockedGroq(
+  await withMockedMistral(
     async () => new Response('Unauthorized', { status: 401 }),
     async () => {
       await assert.rejects(
@@ -182,7 +217,7 @@ test('rejects provider errors and malformed completion JSON', async () => {
     },
   );
 
-  await withMockedGroq(
+  await withMockedMistral(
     async () =>
       new Response(
         JSON.stringify({
@@ -200,19 +235,19 @@ test('rejects provider errors and malformed completion JSON', async () => {
   );
 });
 
-test('includes safe Groq error details without echoing the request', async () => {
+test('includes safe Mistral error details without echoing the request', async () => {
   let callCount = 0;
 
-  await withMockedGroq(
+  await withMockedMistral(
     async () => {
       callCount += 1;
 
       return new Response(
         JSON.stringify({
-          error: {
-            code: 'json_validate_failed',
-            message: 'Failed to validate JSON output',
-          },
+          object: 'error',
+          type: 'invalid_request_error',
+          code: 'json_validate_failed',
+          message: 'Failed to validate JSON output',
         }),
         { status: 400 },
       );
@@ -227,11 +262,11 @@ test('includes safe Groq error details without echoing the request', async () =>
   );
 });
 
-test('retries Groq schema-validation failures with reinforced instructions', async () => {
+test('retries provider schema-validation failures with reinforced instructions', async () => {
   let callCount = 0;
   const requestBodies: Record<string, unknown>[] = [];
 
-  await withMockedGroq(
+  await withMockedMistral(
     async (_input, init) => {
       callCount += 1;
       requestBodies.push(JSON.parse(String(init?.body)));
@@ -239,10 +274,10 @@ test('retries Groq schema-validation failures with reinforced instructions', asy
       if (callCount === 1) {
         return new Response(
           JSON.stringify({
-            error: {
-              code: 'json_validate_failed',
-              message: 'Generated JSON does not match the expected schema',
-            },
+            object: 'error',
+            type: 'invalid_request_error',
+            code: 'json_validate_failed',
+            message: 'Generated JSON does not match the expected schema',
           }),
           { status: 400 },
         );
@@ -250,7 +285,7 @@ test('retries Groq schema-validation failures with reinforced instructions', asy
 
       return new Response(
         JSON.stringify({
-          model: 'openai/gpt-oss-120b',
+          model: 'mistral-small-2603',
           choices: [{ message: { content: '{"value":"recovered"}' } }],
         }),
         { status: 200 },
@@ -278,23 +313,23 @@ test('reports the model finish reason after the final invalid response', async (
         model: 'test/truncated-model',
         choices: [
           {
-            finish_reason: 'length',
-            message: { content: '{"value":' },
+            finish_reason: 'model_length',
+            message: { content: '{"nested":{"value":"partial"},"value":' },
           },
         ],
       }),
       { status: 200 },
     );
 
-  await withMockedGroq(mockFetch, async () => {
+  await withMockedMistral(mockFetch, async () => {
     await assert.rejects(
       generateStructuredCompletion(completionInput),
-      /truncated JSON \(model: test\/truncated-model, finish reason: length\)/,
+      /truncated JSON \(model: test\/truncated-model, finish reason: model_length\)/,
     );
   });
 });
 
-test('aborts a Groq request after the configured timeout', async () => {
+test('aborts a Mistral request after the configured timeout', async () => {
   const mockFetch: typeof fetch = async (_input, init) =>
     new Promise((_resolve, reject) => {
       init?.signal?.addEventListener('abort', () => {
@@ -302,12 +337,12 @@ test('aborts a Groq request after the configured timeout', async () => {
       });
     });
 
-  await withMockedGroq(mockFetch, async () => {
+  await withMockedMistral(mockFetch, async () => {
     await assert.rejects(
       generateStructuredCompletion({ ...completionInput, timeoutMs: 5 }),
       (error) =>
-        error instanceof GroqError &&
-        error.message === 'Groq request timed out',
+        error instanceof AiProviderError &&
+        error.message === 'Mistral request timed out',
     );
   });
 });

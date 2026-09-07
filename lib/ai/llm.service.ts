@@ -1,9 +1,13 @@
-const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-const DEFAULT_MODEL = "openai/gpt-oss-120b";
+const MISTRAL_URL = "https://api.mistral.ai/v1/chat/completions";
+const DEFAULT_MODEL = "ministral-14b-latest";
 const DEFAULT_TIMEOUT_MS = 60_000;
 const MAX_COMPLETION_ATTEMPTS = 2;
 const DEFAULT_MAX_TOKENS = 1_000;
 const TRUNCATION_RETRY_MAX_TOKENS = 1_500;
+const DEFAULT_RATE_LIMIT_COOLDOWN_MS = 60_000;
+const MAX_RATE_LIMIT_COOLDOWN_MS = 5 * 60_000;
+
+let rateLimitCooldownUntil = 0;
 
 type JsonSchema = Record<string, unknown>;
 
@@ -13,6 +17,8 @@ type StructuredCompletionInput = {
   schemaName: string;
   jsonSchema: JsonSchema;
   timeoutMs?: number;
+  maxAttempts?: number;
+  maxTokens?: number;
 };
 
 export type StructuredCompletion = {
@@ -20,11 +26,54 @@ export type StructuredCompletion = {
   model: string;
 };
 
-export class GroqError extends Error {
-  constructor(message: string) {
+export class AiProviderError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string = 'unknown',
+  ) {
     super(message);
-    this.name = "GroqError";
+    this.name = "AiProviderError";
   }
+}
+
+export function resetAiRateLimitCooldown() {
+  rateLimitCooldownUntil = 0;
+}
+
+function parseDurationMilliseconds(value: string | null) {
+  if (!value) return null;
+  const trimmed = value.trim().toLowerCase();
+  const numericSeconds = Number(trimmed);
+  if (Number.isFinite(numericSeconds)) return numericSeconds * 1_000;
+
+  let milliseconds = 0;
+  let matched = false;
+  for (const match of trimmed.matchAll(/(\d+(?:\.\d+)?)(ms|s|m|h)/g)) {
+    matched = true;
+    const amount = Number(match[1]);
+    const unit = match[2];
+    milliseconds += amount * (
+      unit === 'h' ? 3_600_000 : unit === 'm' ? 60_000 : unit === 's' ? 1_000 : 1
+    );
+  }
+  return matched ? milliseconds : null;
+}
+
+function getRateLimitCooldownMs(response: Response) {
+  const retryAfter = response.headers.get('retry-after');
+  let cooldown = parseDurationMilliseconds(retryAfter);
+
+  if (cooldown === null && retryAfter) {
+    const retryDate = Date.parse(retryAfter);
+    if (Number.isFinite(retryDate)) cooldown = retryDate - Date.now();
+  }
+
+  cooldown ??= DEFAULT_RATE_LIMIT_COOLDOWN_MS;
+
+  return Math.min(
+    MAX_RATE_LIMIT_COOLDOWN_MS,
+    Math.max(1_000, Math.ceil(cooldown)),
+  );
 }
 
 type JsonParseResult = { success: true; data: unknown } | { success: false };
@@ -38,50 +87,45 @@ function tryParseJson(candidate: string): JsonParseResult {
 }
 
 function findBalancedJsonCandidates(content: string) {
-  const candidates: string[] = [];
+  const start = content.search(/[\[{]/);
 
-  for (let start = 0; start < content.length; start += 1) {
-    const opening = content[start];
+  if (start === -1) return [];
 
-    if (opening !== "{" && opening !== "[") continue;
+  const stack: string[] = [];
+  let inString = false;
+  let escaped = false;
 
-    const stack: string[] = [];
-    let inString = false;
-    let escaped = false;
+  for (let index = start; index < content.length; index += 1) {
+    const character = content[index];
 
-    for (let index = start; index < content.length; index += 1) {
-      const character = content[index];
-
-      if (inString) {
-        if (escaped) {
-          escaped = false;
-        } else if (character === "\\") {
-          escaped = true;
-        } else if (character === '"') {
-          inString = false;
-        }
-
-        continue;
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (character === '"') {
+        inString = false;
       }
 
-      if (character === '"') {
-        inString = true;
-      } else if (character === "{" || character === "[") {
-        stack.push(character);
-      } else if (character === "}" || character === "]") {
-        const expectedOpening = character === "}" ? "{" : "[";
+      continue;
+    }
 
-        if (stack.pop() !== expectedOpening) break;
+    if (character === '"') {
+      inString = true;
+    } else if (character === "{" || character === "[") {
+      stack.push(character);
+    } else if (character === "}" || character === "]") {
+      const expectedOpening = character === "}" ? "{" : "[";
 
-        if (stack.length === 0) {
-          candidates.push(content.slice(start, index + 1));
-          break;
-        }
+      if (stack.pop() !== expectedOpening) return [];
+
+      if (stack.length === 0) {
+        return [content.slice(start, index + 1)];
       }
     }
   }
 
-  return candidates;
+  return [];
 }
 
 function parseStructuredContent(content: string): JsonParseResult {
@@ -139,7 +183,11 @@ function getCompletionDetails(model: string, finishReason: string | null) {
     : `model: ${model}, finish reason: unavailable`;
 }
 
-async function getGroqResponseError(response: Response) {
+function isTokenLimitFinishReason(finishReason: string | null) {
+  return finishReason === "length" || finishReason === "model_length";
+}
+
+async function getProviderResponseError(response: Response) {
   const status = `status ${response.status}`;
 
   try {
@@ -149,13 +197,11 @@ async function getGroqResponseError(response: Response) {
       return { code: null, details: status };
     }
 
-    const error = (payload as Record<string, unknown>).error;
-
-    if (typeof error !== "object" || error === null) {
-      return { code: null, details: status };
-    }
-
-    const details = error as Record<string, unknown>;
+    const payloadRecord = payload as Record<string, unknown>;
+    const nestedError = payloadRecord.error;
+    const details = typeof nestedError === "object" && nestedError !== null
+      ? nestedError as Record<string, unknown>
+      : payloadRecord;
     const code = typeof details.code === "string" ? details.code : null;
     const type = typeof details.type === "string" ? details.type : null;
     const message =
@@ -178,13 +224,20 @@ async function getGroqResponseError(response: Response) {
 export async function generateStructuredCompletion(
   input: StructuredCompletionInput,
 ): Promise<StructuredCompletion> {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKey = process.env.MISTRAL_API_KEY;
 
   if (!apiKey) {
-    throw new GroqError("GROQ_API_KEY is not configured");
+    throw new AiProviderError("MISTRAL_API_KEY is not configured");
   }
 
-  const model = process.env.GROQ_MODEL ?? DEFAULT_MODEL;
+  const model = process.env.MISTRAL_MODEL ?? DEFAULT_MODEL;
+  const cooldownRemaining = rateLimitCooldownUntil - Date.now();
+  if (cooldownRemaining > 0) {
+    throw new AiProviderError(
+      `Mistral rate limit cooldown active (${Math.ceil(cooldownRemaining / 1_000)}s remaining)`,
+      'rate_limit_exceeded',
+    );
+  }
   const controller = new AbortController();
   const timeout = setTimeout(
     () => controller.abort(),
@@ -194,11 +247,17 @@ export async function generateStructuredCompletion(
   try {
     let previousFailure: string | null = null;
 
-    for (let attempt = 1; attempt <= MAX_COMPLETION_ATTEMPTS; attempt += 1) {
+    const maximumAttempts = Math.max(
+      1,
+      Math.min(MAX_COMPLETION_ATTEMPTS, input.maxAttempts ?? MAX_COMPLETION_ATTEMPTS),
+    );
+
+    for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
+      const requestedMaxTokens = input.maxTokens ?? DEFAULT_MAX_TOKENS;
       const maxTokens = previousFailure?.includes("token limit")
-        ? TRUNCATION_RETRY_MAX_TOKENS
-        : DEFAULT_MAX_TOKENS;
-      const response = await fetch(GROQ_URL, {
+        ? Math.max(requestedMaxTokens, TRUNCATION_RETRY_MAX_TOKENS)
+        : requestedMaxTokens;
+      const response = await fetch(MISTRAL_URL, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
@@ -224,34 +283,41 @@ export async function generateStructuredCompletion(
               schema: input.jsonSchema,
             },
           },
-          reasoning_effort: "low",
-          include_reasoning: false,
-          max_completion_tokens: maxTokens,
+          max_tokens: maxTokens,
           stream: false,
         }),
         signal: controller.signal,
       });
 
       if (!response.ok) {
-        const responseError = await getGroqResponseError(response);
+        const responseError = await getProviderResponseError(response);
+
+        if (response.status === 429) {
+          rateLimitCooldownUntil = Date.now() + getRateLimitCooldownMs(response);
+          throw new AiProviderError(
+            `Mistral request failed with ${responseError.details}`,
+            'rate_limit_exceeded',
+          );
+        }
 
         if (
           responseError.code === "json_validate_failed" &&
-          attempt < MAX_COMPLETION_ATTEMPTS
+          attempt < maximumAttempts
         ) {
           previousFailure = "JSON that did not match the required schema";
           continue;
         }
 
-        throw new GroqError(
-          `Groq request failed with ${responseError.details}`,
+        throw new AiProviderError(
+          `Mistral request failed with ${responseError.details}`,
+          responseError.code ?? `http_${response.status}`,
         );
       }
 
       const payload: unknown = await response.json();
 
       if (typeof payload !== "object" || payload === null) {
-        throw new GroqError("Groq returned an invalid response");
+        throw new AiProviderError("Mistral returned an invalid response");
       }
 
       const result = payload as Record<string, unknown>;
@@ -261,13 +327,13 @@ export async function generateStructuredCompletion(
         typeof responseModel === "string" ? responseModel : model;
 
       if (!Array.isArray(choices) || choices.length === 0) {
-        throw new GroqError("Groq returned no completion choices");
+        throw new AiProviderError("Mistral returned no completion choices");
       }
 
       const firstChoice = choices[0];
 
       if (typeof firstChoice !== "object" || firstChoice === null) {
-        throw new GroqError("Groq returned an invalid completion");
+        throw new AiProviderError("Mistral returned an invalid completion");
       }
 
       const choice = firstChoice as Record<string, unknown>;
@@ -276,21 +342,22 @@ export async function generateStructuredCompletion(
         typeof choice.finish_reason === "string" ? choice.finish_reason : null;
 
       if (typeof message !== "object" || message === null) {
-        throw new GroqError("Groq returned an invalid message");
+        throw new AiProviderError("Mistral returned an invalid message");
       }
 
       const content = getMessageContent(message as Record<string, unknown>);
 
       if (!content?.trim()) {
         previousFailure =
-          finishReason === "length"
+          isTokenLimitFinishReason(finishReason)
             ? "an empty or truncated response caused by the token limit"
             : "an empty response";
 
-        if (attempt < MAX_COMPLETION_ATTEMPTS) continue;
+        if (attempt < maximumAttempts) continue;
 
-        throw new GroqError(
-          `Groq returned empty content (${getCompletionDetails(resolvedModel, finishReason)})`,
+        throw new AiProviderError(
+          `Mistral returned empty content (${getCompletionDetails(resolvedModel, finishReason)})`,
+          'invalid_output',
         );
       }
 
@@ -304,31 +371,34 @@ export async function generateStructuredCompletion(
       }
 
       previousFailure =
-        finishReason === "length"
+        isTokenLimitFinishReason(finishReason)
           ? "truncated JSON caused by the token limit"
           : "malformed JSON";
 
-      if (attempt === MAX_COMPLETION_ATTEMPTS) {
+      if (attempt === maximumAttempts) {
         const failureType =
-          finishReason === "length" ? "truncated JSON" : "malformed JSON";
+          isTokenLimitFinishReason(finishReason)
+            ? "truncated JSON"
+            : "malformed JSON";
 
-        throw new GroqError(
-          `Groq returned ${failureType} (${getCompletionDetails(resolvedModel, finishReason)})`,
+        throw new AiProviderError(
+          `Mistral returned ${failureType} (${getCompletionDetails(resolvedModel, finishReason)})`,
+          'invalid_output',
         );
       }
     }
 
-    throw new GroqError("Groq returned no completion");
+    throw new AiProviderError("Mistral returned no completion", 'invalid_output');
   } catch (error) {
-    if (error instanceof GroqError) {
+    if (error instanceof AiProviderError) {
       throw error;
     }
 
     if (error instanceof Error && error.name === "AbortError") {
-      throw new GroqError("Groq request timed out");
+      throw new AiProviderError("Mistral request timed out", 'timeout');
     }
 
-    throw new GroqError("Groq request failed");
+    throw new AiProviderError("Mistral request failed");
   } finally {
     clearTimeout(timeout);
   }

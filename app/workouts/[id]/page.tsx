@@ -102,6 +102,7 @@ function ExerciseCard({
           </h3>
           <p className="mt-1 text-xs text-zinc-500">
             {humanize(exercise.primaryPattern || exercise.family || "Exercise")}
+            {` · ${humanize(exercise.equipment)}`}
           </p>
           {prescription ? (
             <p className="mt-3 text-sm font-semibold text-zinc-800">
