@@ -10,6 +10,7 @@ import type {
   WorkoutGoal,
   WorkoutLevel,
 } from "@/lib/workouts/workout-generator.service";
+import { getProfileWorkoutPath } from "@/lib/profiles/profile-routes";
 
 const goals = [
   { label: "Strength", value: "strength" },
@@ -40,7 +41,7 @@ const safeGenerationErrors = new Set([
   "No compatible exercises available",
 ]);
 
-export function WorkoutGeneratorForm() {
+export function WorkoutGeneratorForm({ profileId }: { profileId: string }) {
   const router = useRouter();
   const submissionInFlight = useRef(false);
   const [goal, setGoal] = useState<WorkoutGoal>("strength");
@@ -72,11 +73,14 @@ export function WorkoutGeneratorForm() {
     let isNavigating = false;
 
     try {
-      const response = await fetch("/api/workouts/generate", {
+      const response = await fetch(
+        `/api/profiles/${encodeURIComponent(profileId)}/workouts/generate`,
+        {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
-      });
+        },
+      );
       const result = (await response.json().catch(() => null)) as {
         id?: unknown;
         error?: unknown;
@@ -102,7 +106,7 @@ export function WorkoutGeneratorForm() {
         throw new Error("Generated workout response is missing an id");
       }
 
-      router.push(`/workouts/${encodeURIComponent(result.id)}`);
+      router.push(getProfileWorkoutPath(profileId, result.id));
       isNavigating = true;
     } catch {
       setError("Could not generate workout. Please try again.");

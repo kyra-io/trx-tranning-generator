@@ -1,29 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { useSelectedLayoutSegment } from "next/navigation";
+import { usePathname } from "next/navigation";
 
-const navigationItems = [
-  { href: "/", label: "Generate", segment: null, icon: SparkIcon },
-  {
-    href: "/workouts",
-    label: "Workouts",
-    segment: "workouts",
-    icon: ListIcon,
-  },
-] as const;
+const PROFILE_PATH_PATTERN = /^\/profiles\/([^/]+)(?:\/|$)/;
 
 export function BottomNavigation() {
-  const activeSegment = useSelectedLayoutSegment();
+  const pathname = usePathname();
+  const profileMatch = pathname.match(PROFILE_PATH_PATTERN);
+  const profileId = profileMatch?.[1];
+  const profilePath = profileId ? `/profiles/${profileId}` : null;
+  const navigationItems = profilePath
+    ? [
+        { href: "/", label: "Profiles", icon: HomeIcon },
+        { href: profilePath, label: "Profile", icon: ListIcon },
+        { href: `${profilePath}/workouts/new`, label: "Create", icon: SparkIcon },
+      ]
+    : [
+        { href: "/", label: "Profiles", icon: ListIcon },
+        { href: "/profiles/new", label: "Create profile", icon: SparkIcon },
+      ];
 
   return (
     <nav
       aria-label="Primary navigation"
       className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[480px] border-t border-zinc-200 bg-white px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
     >
-      <div className="grid grid-cols-2 gap-2">
+      <div
+        className={`grid gap-2 ${
+          navigationItems.length === 3 ? "grid-cols-3" : "grid-cols-2"
+        }`}
+      >
         {navigationItems.map((item) => {
-          const isActive = activeSegment === item.segment;
+          const isActive = item.href === "/"
+            ? pathname === "/"
+            : pathname === item.href;
           const Icon = item.icon;
 
           return (
@@ -44,6 +55,26 @@ export function BottomNavigation() {
         })}
       </div>
     </nav>
+  );
+}
+
+function HomeIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      className="size-5"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="m4 10 8-6.5 8 6.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19v-9Z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 20.5v-6h5v6" />
+    </svg>
   );
 }
 

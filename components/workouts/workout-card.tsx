@@ -2,6 +2,7 @@ import Link from "next/link";
 
 export type WorkoutSummary = {
   id: string;
+  profileId: string;
   name: string;
   goal: string;
   level: string;
@@ -9,9 +10,9 @@ export type WorkoutSummary = {
   requestedDurationMinutes: number;
   estimatedDurationMinutes: number | null;
   status: string;
-  createdAt: string;
-  startedAt: string | null;
-  completedAt: string | null;
+  createdAt: string | Date;
+  startedAt: string | Date | null;
+  completedAt: string | Date | null;
 };
 
 const labels: Record<string, string> = {
@@ -27,7 +28,13 @@ const labels: Record<string, string> = {
   completed: "Completed",
 };
 
-export function WorkoutCard({ workout }: { workout: WorkoutSummary }) {
+export function WorkoutCard({
+  profileId,
+  workout,
+}: {
+  profileId: string;
+  workout: WorkoutSummary;
+}) {
   const duration =
     workout.estimatedDurationMinutes ?? workout.requestedDurationMinutes;
   const createdDate = new Intl.DateTimeFormat("en-US", {
@@ -37,7 +44,7 @@ export function WorkoutCard({ workout }: { workout: WorkoutSummary }) {
 
   return (
     <Link
-      href={`/workouts/${workout.id}`}
+      href={`/profiles/${encodeURIComponent(profileId)}/workouts/${encodeURIComponent(workout.id)}`}
       className="group block rounded-2xl border border-zinc-200 bg-white p-4 outline-none transition-colors hover:border-zinc-300 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
     >
       <div className="flex items-start justify-between gap-4">
@@ -67,7 +74,7 @@ export function WorkoutCard({ workout }: { workout: WorkoutSummary }) {
         {labels[workout.focus] ?? workout.focus}
       </p>
       <div className="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3 text-xs">
-        <time dateTime={workout.createdAt} className="text-zinc-500">
+        <time dateTime={new Date(workout.createdAt).toISOString()} className="text-zinc-500">
           {createdDate}
         </time>
         <span

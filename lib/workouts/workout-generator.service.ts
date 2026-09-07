@@ -34,6 +34,7 @@ import {
   getWorkoutById,
   type RecentWorkoutContext,
 } from '@/lib/workouts/workout.repository';
+import { getProfileById } from '@/lib/profiles/profile.repository';
 
 export type { WorkoutFocus, WorkoutGoal, WorkoutLevel } from '@/lib/workouts/workout-candidate-selector';
 
@@ -61,7 +62,8 @@ export class WorkoutGenerationError extends Error {
   constructor(
     public readonly code:
       | 'NO_EXERCISES_AVAILABLE'
-      | 'NO_COMPATIBLE_EXERCISES',
+      | 'NO_COMPATIBLE_EXERCISES'
+      | 'PROFILE_NOT_FOUND',
     message: string,
   ) {
     super(message);
@@ -376,6 +378,7 @@ IMPORTANT PLAN RETRY: The previous plan was rejected by the workout validator: $
 }
 
 async function persistGeneratedWorkout(
+  profileId: string,
   input: GenerateWorkoutInput,
   generatedWorkout: GeneratedWorkout,
 ) {
@@ -390,6 +393,7 @@ async function persistGeneratedWorkout(
   ];
   const workoutId = await db.transaction(async (tx) => {
     const [workout] = await tx.insert(workouts).values({
+      profileId,
       name: generatedWorkout.name,
       goal: input.goal,
       level: input.level,
@@ -426,7 +430,7 @@ async function persistGeneratedWorkout(
     await tx.insert(workoutExercises).values(exerciseValues);
     return workout.id;
   });
-  const workout = await getWorkoutById(workoutId);
+  const workout = await getWorkoutById(profileId, workoutId);
   if (!workout) throw new Error('Generated workout could not be loaded');
   return workout;
 }
@@ -460,10 +464,19 @@ function logGenerationSummary({
   });
 }
 
-export async function generateWorkout(input: GenerateWorkoutInput) {
+export async function generateWorkout(
+  profileId: string,
+  input: GenerateWorkoutInput,
+) {
+  const profile = await getProfileById(profileId);
+
+  if (!profile) {
+    throw new WorkoutGenerationError('PROFILE_NOT_FOUND', 'Profile not found');
+  }
+
   const [catalog, recentWorkouts] = await Promise.all([
     loadExerciseCatalog(),
-    getRecentWorkoutContext(FALLBACK_HISTORY_LIMIT),
+    getRecentWorkoutContext(profileId, FALLBACK_HISTORY_LIMIT),
   ]);
   const eligibleExercises = getEligibleExerciseCatalog(catalog, input.level);
   const plannerHistory = recentWorkouts.slice(0, RECENT_WORKOUT_LIMIT);
@@ -509,5 +522,5 @@ export async function generateWorkout(input: GenerateWorkoutInput) {
     workout: generatedWorkout,
     fallbackUsed,
   });
-  return persistGeneratedWorkout(input, generatedWorkout);
+  return persistGeneratedWorkout(profileId, input, generatedWorkout);
 }

@@ -1,4 +1,4 @@
-import { asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import {
@@ -19,6 +19,7 @@ import {
 type WorkoutSummary = Pick<
   typeof workouts.$inferSelect,
   | 'id'
+  | 'profileId'
   | 'name'
   | 'goal'
   | 'level'
@@ -93,6 +94,7 @@ export type WorkoutDetail = WorkoutSummary & {
 
 const workoutFields = {
   id: workouts.id,
+  profileId: workouts.profileId,
   name: workouts.name,
   goal: workouts.goal,
   level: workouts.level,
@@ -105,17 +107,22 @@ const workoutFields = {
   completedAt: workouts.completedAt,
 };
 
-export async function listWorkouts(): Promise<WorkoutSummary[]> {
+export async function listWorkouts(profileId: string): Promise<WorkoutSummary[]> {
   return db
     .select(workoutFields)
     .from(workouts)
+    .where(eq(workouts.profileId, profileId))
     .orderBy(desc(workouts.createdAt));
 }
 
-export async function getRecentWorkoutExerciseIds(limit = 10) {
+export async function getRecentWorkoutExerciseIds(
+  profileId: string,
+  limit = 10,
+) {
   const recentWorkouts = await db
     .select({ id: workouts.id })
     .from(workouts)
+    .where(eq(workouts.profileId, profileId))
     .orderBy(desc(workouts.createdAt))
     .limit(limit);
 
@@ -153,6 +160,7 @@ export type RecentWorkoutContext = {
 };
 
 export async function getRecentWorkoutContext(
+  profileId: string,
   limit = 5,
 ): Promise<RecentWorkoutContext[]> {
   const recentWorkouts = await db
@@ -162,6 +170,7 @@ export async function getRecentWorkoutContext(
       focus: workouts.focus,
     })
     .from(workouts)
+    .where(eq(workouts.profileId, profileId))
     .orderBy(desc(workouts.createdAt))
     .limit(limit);
 
@@ -196,22 +205,36 @@ export async function getRecentWorkoutContext(
   });
 }
 
-export async function deleteWorkout(id: string): Promise<boolean> {
+export async function deleteWorkout(
+  profileId: string,
+  workoutId: string,
+): Promise<boolean> {
   const deletedWorkouts = await db
     .delete(workouts)
-    .where(eq(workouts.id, id))
+    .where(
+      and(
+        eq(workouts.profileId, profileId),
+        eq(workouts.id, workoutId),
+      ),
+    )
     .returning({ id: workouts.id });
 
   return deletedWorkouts.length > 0;
 }
 
 export async function getWorkoutById(
-  id: string,
+  profileId: string,
+  workoutId: string,
 ): Promise<WorkoutDetail | null> {
   const [workout] = await db
     .select(workoutFields)
     .from(workouts)
-    .where(eq(workouts.id, id))
+    .where(
+      and(
+        eq(workouts.profileId, profileId),
+        eq(workouts.id, workoutId),
+      ),
+    )
     .limit(1);
 
   if (!workout) {
@@ -228,7 +251,7 @@ export async function getWorkoutById(
         rounds: workoutBlocks.rounds,
       })
       .from(workoutBlocks)
-      .where(eq(workoutBlocks.workoutId, id))
+      .where(eq(workoutBlocks.workoutId, workoutId))
       .orderBy(asc(workoutBlocks.position)),
     db
       .select({
@@ -237,7 +260,7 @@ export async function getWorkoutById(
         createdAt: workoutFeedback.createdAt,
       })
       .from(workoutFeedback)
-      .where(eq(workoutFeedback.workoutId, id))
+      .where(eq(workoutFeedback.workoutId, workoutId))
       .limit(1),
   ]);
 

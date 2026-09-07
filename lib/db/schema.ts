@@ -1,5 +1,6 @@
 import {
   boolean,
+  index,
   integer,
   numeric,
   pgTable,
@@ -8,7 +9,9 @@ import {
   unique,
   uuid,
   varchar,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 export const exercises = pgTable('exercises', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -100,25 +103,52 @@ export const exerciseImages = pgTable('exercise_images', {
   sortOrder: integer('sort_order').notNull().default(0),
 });
 
-export const workouts = pgTable('workouts', {
-  id: uuid('id').defaultRandom().primaryKey(),
+export const profiles = pgTable(
+  'profiles',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    name: varchar('name', { length: 100 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('profiles_name_lower_unique').on(sql`lower(${table.name})`),
+  ],
+);
 
-  name: varchar('name', { length: 200 }).notNull(),
-  goal: varchar('goal', { length: 50 }).notNull(),
-  level: varchar('level', { length: 50 }).notNull(),
-  focus: varchar('focus', { length: 50 }).notNull(),
+export const workouts = pgTable(
+  'workouts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
 
-  requestedDurationMinutes: integer('requested_duration_minutes').notNull(),
-  estimatedDurationMinutes: integer('estimated_duration_minutes'),
+    profileId: uuid('profile_id')
+      .notNull()
+      .references(() => profiles.id),
 
-  status: varchar('status', { length: 50 }).notNull().default('generated'),
+    name: varchar('name', { length: 200 }).notNull(),
+    goal: varchar('goal', { length: 50 }).notNull(),
+    level: varchar('level', { length: 50 }).notNull(),
+    focus: varchar('focus', { length: 50 }).notNull(),
 
-  createdAt: timestamp('created_at', { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  startedAt: timestamp('started_at', { withTimezone: true }),
-  completedAt: timestamp('completed_at', { withTimezone: true }),
-});
+    requestedDurationMinutes: integer('requested_duration_minutes').notNull(),
+    estimatedDurationMinutes: integer('estimated_duration_minutes'),
+
+    status: varchar('status', { length: 50 }).notNull().default('generated'),
+
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('workouts_profile_id_created_at_idx').on(
+      table.profileId,
+      table.createdAt,
+    ),
+  ],
+);
 
 export const workoutBlocks = pgTable(
   'workout_blocks',

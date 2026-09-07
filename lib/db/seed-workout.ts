@@ -1,20 +1,32 @@
 import { loadEnvConfig } from '@next/env';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 
 loadEnvConfig(process.cwd());
 
 const WORKOUT_NAME = 'Full Body Strength';
+const DEVELOPMENT_PROFILE_NAME = 'Development';
 
 async function seedWorkout() {
   const { db } = await import('./index');
   const {
     exercises,
+    profiles,
     workoutBlocks,
     workoutExercises,
     workouts,
   } = await import('./schema');
 
   const result = await db.transaction(async (tx) => {
+    const [existingProfile] = await tx
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(sql`lower(${profiles.name}) = ${DEVELOPMENT_PROFILE_NAME.toLowerCase()}`)
+      .limit(1);
+    const profile = existingProfile ?? (await tx
+      .insert(profiles)
+      .values({ name: DEVELOPMENT_PROFILE_NAME })
+      .returning({ id: profiles.id }))[0];
+
     const availableExercises = await tx
       .select({
         id: exercises.id,
@@ -64,12 +76,14 @@ async function seedWorkout() {
         and(
           eq(workouts.name, WORKOUT_NAME),
           eq(workouts.status, 'generated'),
+          eq(workouts.profileId, profile.id),
         ),
       );
 
     const [workout] = await tx
       .insert(workouts)
       .values({
+        profileId: profile.id,
         name: WORKOUT_NAME,
         goal: 'strength',
         level: 'intermediate',
@@ -153,6 +167,7 @@ async function seedWorkout() {
 
     return {
       workoutId: workout.id,
+      profileId: profile.id,
       blockCount: blocks.length,
       exerciseCount: workoutExerciseData.length,
     };
@@ -160,6 +175,7 @@ async function seedWorkout() {
 
   console.log(`Seeded workout: ${WORKOUT_NAME}`);
   console.log(`Workout ID: ${result.workoutId}`);
+  console.log(`Profile ID: ${result.profileId}`);
   console.log(`Blocks: ${result.blockCount}`);
   console.log(`Exercises: ${result.exerciseCount}`);
 }

@@ -54,9 +54,15 @@ function summarize(workout: Workout, previous?: Workout) {
 
 async function main() {
   const baseUrl = process.env.GENERATOR_BASE_URL;
+  const profileId = process.env.WORKOUT_PROFILE_ID;
+
+  if (!profileId) {
+    throw new Error('Set WORKOUT_PROFILE_ID to the profile used for variety testing.');
+  }
+
   const generateWorkout: (input: GenerateWorkoutInput) => Promise<Workout> = baseUrl
     ? async (input): Promise<Workout> => {
-        const response = await fetch(`${baseUrl}/api/workouts/generate`, {
+        const response = await fetch(`${baseUrl}/api/profiles/${encodeURIComponent(profileId)}/workouts/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(input),
@@ -66,7 +72,11 @@ async function main() {
         }
         return response.json() as Promise<Workout>;
       }
-    : (await import('../lib/workouts/workout-generator.service')).generateWorkout;
+    : async (input) =>
+        (await import('../lib/workouts/workout-generator.service')).generateWorkout(
+          profileId,
+          input,
+        );
   const repeated: Workout[] = [];
 
   for (let index = 0; index < 10; index += 1) {

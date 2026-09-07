@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { db } from '@/lib/db';
 import { workoutFeedback, workouts } from '@/lib/db/schema';
@@ -19,14 +19,20 @@ export class WorkoutNotFoundError extends Error {
 }
 
 export async function completeWorkout(
-  id: string,
+  profileId: string,
+  workoutId: string,
   input: CompleteWorkoutInput,
 ) {
   await db.transaction(async (tx) => {
     const [workout] = await tx
       .select({ id: workouts.id })
       .from(workouts)
-      .where(eq(workouts.id, id))
+      .where(
+        and(
+          eq(workouts.profileId, profileId),
+          eq(workouts.id, workoutId),
+        ),
+      )
       .limit(1);
 
     if (!workout) {
@@ -39,12 +45,17 @@ export async function completeWorkout(
         status: 'completed',
         completedAt: sql`coalesce(${workouts.completedAt}, now())`,
       })
-      .where(eq(workouts.id, id));
+      .where(
+        and(
+          eq(workouts.profileId, profileId),
+          eq(workouts.id, workoutId),
+        ),
+      );
 
     await tx
       .insert(workoutFeedback)
       .values({
-        workoutId: id,
+        workoutId,
         difficulty: input.difficulty,
         notes: input.notes ?? null,
       })
@@ -57,7 +68,7 @@ export async function completeWorkout(
       });
   });
 
-  const workout = await getWorkoutById(id);
+  const workout = await getWorkoutById(profileId, workoutId);
 
   if (!workout) {
     throw new Error('Completed workout could not be loaded');

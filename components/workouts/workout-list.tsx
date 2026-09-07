@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   WorkoutCard,
@@ -28,45 +28,14 @@ const emptyStateCopy: Record<
   },
 };
 
-export function WorkoutList() {
+export function WorkoutList({
+  profileId,
+  workouts,
+}: {
+  profileId: string;
+  workouts: WorkoutSummary[];
+}) {
   const [filter, setFilter] = useState<WorkoutFilter>("generated");
-  const [workouts, setWorkouts] = useState<WorkoutSummary[] | null>(null);
-  const [error, setError] = useState(false);
-  const [requestKey, setRequestKey] = useState(0);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    async function loadWorkouts() {
-      try {
-        const response = await fetch("/api/workouts", {
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to load workouts");
-        }
-
-        const data: unknown = await response.json();
-
-        if (!Array.isArray(data)) {
-          throw new Error("Unexpected workouts response");
-        }
-
-        setWorkouts(data as WorkoutSummary[]);
-      } catch (loadError) {
-        if (
-          !(loadError instanceof DOMException && loadError.name === "AbortError")
-        ) {
-          setError(true);
-        }
-      }
-    }
-
-    loadWorkouts();
-
-    return () => controller.abort();
-  }, [requestKey]);
 
   const filterControl = (
     <div className="mb-4">
@@ -90,45 +59,6 @@ export function WorkoutList() {
       </select>
     </div>
   );
-
-  if (error) {
-    return (
-      <>
-        {filterControl}
-        <div
-          role="alert"
-          className="rounded-2xl border border-zinc-200 bg-white px-5 py-8 text-center"
-        >
-          <h2 className="font-semibold text-zinc-900">Could not load workouts</h2>
-          <p className="mt-2 text-sm leading-6 text-zinc-500">
-            Check your connection and try again.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setError(false);
-              setWorkouts(null);
-              setRequestKey((key) => key + 1);
-            }}
-            className="mt-5 min-h-11 rounded-xl border border-zinc-200 bg-white px-5 text-sm font-semibold text-zinc-900 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          >
-            Try again
-          </button>
-        </div>
-      </>
-    );
-  }
-
-  if (workouts === null) {
-    return (
-      <>
-        {filterControl}
-        <div role="status" className="py-12 text-center text-sm text-zinc-500">
-          Loading workouts...
-        </div>
-      </>
-    );
-  }
 
   const filteredWorkouts = workouts.filter((workout) => {
     if (filter === "completed") {
@@ -172,7 +102,7 @@ export function WorkoutList() {
             {emptyState.description}
           </p>
           <Link
-            href="/"
+            href={`/profiles/${encodeURIComponent(profileId)}/workouts/new`}
             className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary-hover px-5 text-sm font-semibold text-white outline-none hover:bg-primary-strong focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Create workout
@@ -187,7 +117,7 @@ export function WorkoutList() {
       {filterControl}
       <div className="space-y-3">
         {filteredWorkouts.map((workout) => (
-          <WorkoutCard key={workout.id} workout={workout} />
+          <WorkoutCard key={workout.id} profileId={profileId} workout={workout} />
         ))}
       </div>
     </>

@@ -8,9 +8,7 @@ import {
   getWorkoutById,
   type WorkoutDetail,
 } from "@/lib/workouts/workout.repository";
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from "@/lib/validation/uuid";
 
 const labels: Record<string, string> = {
   full_body: "Full body",
@@ -69,9 +67,11 @@ function getMainMuscles(
 }
 
 function ExerciseCard({
+  profileId,
   workoutId,
   workoutExercise,
 }: {
+  profileId: string;
   workoutId: string;
   workoutExercise: WorkoutDetail["blocks"][number]["exercises"][number];
 }) {
@@ -93,7 +93,7 @@ function ExerciseCard({
             <Link
               href={{
                 pathname: `/exercises/${exercise.id}`,
-                query: { workoutId },
+                query: { profileId, workoutId },
               }}
               className="-my-2 inline-flex min-h-11 items-center rounded-md py-2 outline-none hover:text-primary-hover focus-visible:ring-2 focus-visible:ring-primary"
             >
@@ -134,15 +134,15 @@ function ExerciseCard({
 }
 
 export default async function WorkoutDetailPage(
-  props: { params: Promise<{ id: string }> },
+  props: { params: Promise<{ profileId: string; workoutId: string }> },
 ) {
-  const { id } = await props.params;
+  const { profileId, workoutId } = await props.params;
 
-  if (!UUID_PATTERN.test(id)) {
+  if (!isUuid(profileId) || !isUuid(workoutId)) {
     notFound();
   }
 
-  const workout = await getWorkoutById(id);
+  const workout = await getWorkoutById(profileId, workoutId);
 
   if (!workout) {
     notFound();
@@ -155,7 +155,7 @@ export default async function WorkoutDetailPage(
     <div>
       <header>
         <Link
-          href="/workouts"
+          href={`/profiles/${profileId}`}
           className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-zinc-500 outline-none hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-primary"
         >
           <svg
@@ -187,6 +187,7 @@ export default async function WorkoutDetailPage(
       </header>
 
       <WorkoutDetailActions
+        profileId={profileId}
         workoutId={workout.id}
         initialStatus={workout.status}
         initialFeedback={
@@ -232,6 +233,7 @@ export default async function WorkoutDetailPage(
                 {block.exercises.map((exercise) => (
                   <ExerciseCard
                     key={exercise.id}
+                    profileId={profileId}
                     workoutId={workout.id}
                     workoutExercise={exercise}
                   />

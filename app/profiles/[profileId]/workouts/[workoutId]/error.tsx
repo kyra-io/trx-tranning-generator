@@ -27,7 +27,7 @@ export default function WorkoutDetailError({
       </p>
       <div className="mt-6 flex justify-center gap-2">
         <Link
-          href="/workouts"
+          href="/"
           className="inline-flex min-h-11 items-center justify-center rounded-xl border border-zinc-200 px-4 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           Back

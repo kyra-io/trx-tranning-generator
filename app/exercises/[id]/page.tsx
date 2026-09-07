@@ -7,9 +7,7 @@ import {
   getExerciseById,
   type ExerciseDetail,
 } from "@/lib/exercises/exercise.repository";
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from "@/lib/validation/uuid";
 
 const difficultyLabels: Record<number, string> = {
   1: "Beginner",
@@ -74,12 +72,15 @@ export default async function ExerciseDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ workoutId?: string | string[] }>;
+  searchParams: Promise<{
+    profileId?: string | string[];
+    workoutId?: string | string[];
+  }>;
 }) {
   const { id } = await params;
-  const { workoutId } = await searchParams;
+  const { profileId, workoutId } = await searchParams;
 
-  if (!UUID_PATTERN.test(id)) {
+  if (!isUuid(id)) {
     notFound();
   }
 
@@ -99,9 +100,12 @@ export default async function ExerciseDetailPage({
     score: muscle.activation,
   }));
   const backHref =
-    typeof workoutId === "string" && UUID_PATTERN.test(workoutId)
-      ? `/workouts/${workoutId}`
-      : "/workouts";
+    typeof profileId === "string" &&
+    typeof workoutId === "string" &&
+    isUuid(profileId) &&
+    isUuid(workoutId)
+      ? `/profiles/${profileId}/workouts/${workoutId}`
+      : "/";
 
   return (
     <div className="min-w-0">

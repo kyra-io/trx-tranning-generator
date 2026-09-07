@@ -1,15 +1,23 @@
-import { WorkoutGeneratorForm } from "@/components/generate/workout-generator-form";
+import { connection } from "next/server";
 
-export default function GeneratePage() {
+import { ProfileSelector } from "@/components/profiles/profile-selector";
+import { listProfiles } from "@/lib/profiles/profile.repository";
+
+export default async function HomePage() {
+  await connection();
+  const profiles = await listProfiles();
+
   return (
     <div>
       <header className="mb-8">
         <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
-          Create workout
+          Choose profile
         </h1>
-        <p className="mt-2 text-base text-zinc-500">Configure your session</p>
+        <p className="mt-2 text-base text-zinc-500">
+          Open your personal workout history
+        </p>
       </header>
-      <WorkoutGeneratorForm />
+      <ProfileSelector profiles={profiles} />
     </div>
   );
 }

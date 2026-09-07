@@ -26,11 +26,13 @@ const difficultyOptions: Array<{ value: Difficulty; label: string }> = [
 ];
 
 export function WorkoutDetailActions({
+  profileId,
   workoutId,
   initialStatus,
   initialFeedback,
   children,
 }: {
+  profileId: string;
   workoutId: string;
   initialStatus: string;
   initialFeedback: Feedback | null;
@@ -77,7 +79,7 @@ export function WorkoutDetailActions({
     setIsCompleting(true);
 
     try {
-      const response = await fetch(`/api/workouts/${workoutId}/complete`, {
+      const response = await fetch(`/api/profiles/${encodeURIComponent(profileId)}/workouts/${encodeURIComponent(workoutId)}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -116,7 +118,7 @@ export function WorkoutDetailActions({
     setIsDeleting(true);
 
     try {
-      const response = await fetch(`/api/workouts/${workoutId}`, {
+      const response = await fetch(`/api/profiles/${encodeURIComponent(profileId)}/workouts/${encodeURIComponent(workoutId)}`, {
         method: "DELETE",
       });
 
@@ -124,7 +126,7 @@ export function WorkoutDetailActions({
         throw new Error("Could not delete workout");
       }
 
-      router.push("/workouts");
+      router.push(`/profiles/${encodeURIComponent(profileId)}`);
       router.refresh();
     } catch {
       setError("Could not delete workout. Please try again.");
