@@ -3,6 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
+import {
+  EquipmentOptionGroup,
+  getEquipmentSelectionError,
+} from "@/components/generate/equipment-option-group";
 import { OptionGroup } from "@/components/generate/option-group";
 import type {
   GenerateWorkoutInput,
@@ -10,6 +14,7 @@ import type {
   WorkoutGoal,
   WorkoutLevel,
 } from "@/lib/workouts/workout-generator.service";
+import type { WorkoutEquipment } from "@/lib/workouts/workout-equipment";
 import { getProfileWorkoutPath } from "@/lib/profiles/profile-routes";
 
 const goals = [
@@ -36,6 +41,12 @@ const focuses = [
   { label: "Core", value: "core" },
 ] as const;
 
+const equipmentOptions = [
+  { label: "TRX", value: "suspension_trainer" },
+  { label: "Dumbbells", value: "dumbbell" },
+  { label: "No equipment", value: "bodyweight" },
+] as const;
+
 const safeGenerationErrors = new Set([
   "No exercises available",
   "No compatible exercises available",
@@ -49,11 +60,18 @@ export function WorkoutGeneratorForm({ profileId }: { profileId: string }) {
   const [level, setLevel] = useState<WorkoutLevel>("intermediate");
   const [focus, setFocus] = useState<WorkoutFocus>("full_body");
   const [intensity, setIntensity] = useState(6);
+  const [equipment, setEquipment] = useState<WorkoutEquipment[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    const equipmentError = getEquipmentSelectionError(equipment);
+    if (equipmentError) {
+      setError(equipmentError);
+      return;
+    }
 
     if (submissionInFlight.current) {
       return;
@@ -69,6 +87,7 @@ export function WorkoutGeneratorForm({ profileId }: { profileId: string }) {
       level,
       focus,
       intensity,
+      equipment,
     };
     let isNavigating = false;
 
@@ -155,6 +174,24 @@ export function WorkoutGeneratorForm({ profileId }: { profileId: string }) {
         value={focus}
         onChange={(value) => setFocus(value as WorkoutFocus)}
         columns={2}
+      />
+      <EquipmentOptionGroup
+        options={equipmentOptions}
+        value={equipment}
+        onChange={(value) => {
+          setEquipment(value);
+          if (
+            value.length > 0 &&
+            error === "Select at least one equipment option."
+          ) {
+            setError(null);
+          }
+        }}
+        errorId={
+          error === "Select at least one equipment option."
+            ? "generation-error"
+            : undefined
+        }
       />
 
       <div>

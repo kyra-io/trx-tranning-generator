@@ -18,7 +18,7 @@ type ExerciseSeed = {
   primaryPattern: 'pull' | 'push' | 'squat' | 'lunge' | 'hinge' | 'plank' | 'rotate';
   difficulty: 1 | 2 | 3;
   unilateral: boolean;
-  equipment?: 'suspension_trainer' | 'dumbbell';
+  equipment?: 'suspension_trainer' | 'dumbbell' | 'bodyweight';
   instructions: string;
   sourceName?: string;
   sourceUrl: string | null;
@@ -348,6 +348,150 @@ const catalog: ExerciseSeed[] = [
     sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Spell_Caster'),
     muscles: [m('abs', 'primary', 1), m('obliques', 'primary', 0.9), m('glutes', 'secondary', 0.45), m('front-delts', 'secondary', 0.4), m('lower-back', 'stabilizer', 0.35)],
   },
+  {
+    slug: 'bodyweight-squat', name: 'Bodyweight Squat', family: 'squat', primaryPattern: 'squat', difficulty: 1, unilateral: false, equipment: 'bodyweight',
+    instructions: 'Stand with your feet around shoulder width and brace your trunk. Sit your hips down and back while keeping your chest lifted and knees tracking over your feet. Drive through the floor to stand tall.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Bodyweight_Squat'),
+    muscles: [m('quads', 'primary', 1), m('glutes', 'primary', 0.85), m('hamstrings', 'secondary', 0.55), m('calves', 'stabilizer', 0.3), m('abs', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'bodyweight-walking-lunge', name: 'Bodyweight Walking Lunge', family: 'lunge', primaryPattern: 'lunge', difficulty: 1, unilateral: true, equipment: 'bodyweight',
+    instructions: 'Stand tall with your feet together. Step forward and lower both knees while keeping the front foot planted and torso upright. Drive through the front heel and bring the rear leg forward into the next lunge.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Bodyweight_Walking_Lunge'),
+    muscles: [m('quads', 'primary', 1), m('glutes', 'primary', 0.85), m('hamstrings', 'secondary', 0.55), m('calves', 'stabilizer', 0.4), m('abs', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'bodyweight-crossover-reverse-lunge', name: 'Crossover Reverse Lunge', family: 'lunge', primaryPattern: 'rotate', difficulty: 2, unilateral: true, equipment: 'bodyweight',
+    instructions: 'Stand with your feet around shoulder width. Step one foot back into a reverse lunge while rotating your torso across the front leg. Return to standing under control and alternate sides.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Crossover_Reverse_Lunge'),
+    muscles: [m('glutes', 'primary', 0.9), m('quads', 'primary', 0.85), m('obliques', 'secondary', 0.7), m('hamstrings', 'secondary', 0.55), m('abs', 'stabilizer', 0.45)],
+  },
+  {
+    slug: 'bodyweight-jump-squat', name: 'Bodyweight Jump Squat', family: 'squat', primaryPattern: 'squat', difficulty: 2, unilateral: false, equipment: 'bodyweight',
+    instructions: 'Lower into a balanced squat with your chest lifted. Drive through both feet into a vertical jump. Land softly with bent knees and flow under control into the next squat.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Freehand_Jump_Squat'),
+    muscles: [m('quads', 'primary', 1), m('glutes', 'primary', 0.9), m('hamstrings', 'secondary', 0.6), m('calves', 'secondary', 0.6), m('abs', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'bodyweight-split-jump', name: 'Split Jump', family: 'lunge', primaryPattern: 'lunge', difficulty: 2, unilateral: true, equipment: 'bodyweight',
+    instructions: 'Begin in a lunge with both knees bent. Jump vertically and switch your leg position in the air. Land softly in the opposite lunge and absorb the impact before repeating.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Split_Jump'),
+    muscles: [m('quads', 'primary', 1), m('glutes', 'primary', 0.9), m('hamstrings', 'secondary', 0.55), m('calves', 'secondary', 0.6), m('abs', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'bodyweight-glute-bridge', name: 'Glute Bridge', family: 'hinge', primaryPattern: 'hinge', difficulty: 1, unilateral: false, equipment: 'bodyweight',
+    instructions: 'Lie on your back with your knees bent and feet flat on the floor. Drive through your heels to lift your hips while keeping your ribs controlled. Squeeze your glutes briefly, then lower under control.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Butt_Lift_Bridge'),
+    muscles: [m('glutes', 'primary', 1), m('hamstrings', 'secondary', 0.7), m('lower-back', 'stabilizer', 0.3), m('abs', 'stabilizer', 0.35)],
+  },
+  {
+    slug: 'bodyweight-single-leg-glute-bridge', name: 'Single-Leg Glute Bridge', family: 'hinge', primaryPattern: 'hinge', difficulty: 2, unilateral: true, equipment: 'bodyweight',
+    instructions: 'Lie on your back with one foot planted and the other leg lifted. Drive through the planted heel to extend your hip without rotating your pelvis. Pause at the top and lower slowly before changing sides.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Single_Leg_Glute_Bridge'),
+    muscles: [m('glutes', 'primary', 1), m('hamstrings', 'primary', 0.75), m('lower-back', 'stabilizer', 0.35), m('abs', 'stabilizer', 0.45)],
+  },
+  {
+    slug: 'bodyweight-glute-kickback', name: 'Glute Kickback', family: 'hinge', primaryPattern: 'hinge', difficulty: 1, unilateral: true, equipment: 'bodyweight',
+    instructions: 'Start on hands and knees with your spine neutral. Keeping one knee bent, drive that foot upward until the thigh is in line with your torso. Squeeze the glute, return with control, and repeat on the other side.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Glute_Kickback'),
+    muscles: [m('glutes', 'primary', 1), m('hamstrings', 'secondary', 0.55), m('abs', 'stabilizer', 0.4), m('front-delts', 'stabilizer', 0.25)],
+  },
+  {
+    slug: 'bodyweight-inchworm', name: 'Inchworm', family: 'hinge', primaryPattern: 'hinge', difficulty: 1, unilateral: false, equipment: 'bodyweight',
+    instructions: 'Stand tall, hinge forward, and place your hands on the floor. Walk your hands forward into a strong high plank, then walk your feet toward your hands with small controlled steps. Stand and repeat.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Inchworm'),
+    muscles: [m('hamstrings', 'primary', 0.8), m('abs', 'primary', 0.7), m('front-delts', 'secondary', 0.55), m('chest', 'stabilizer', 0.35), m('calves', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'bodyweight-superman', name: 'Superman', family: 'hinge', primaryPattern: 'hinge', difficulty: 1, unilateral: false, equipment: 'bodyweight',
+    instructions: 'Lie face down with arms extended overhead and legs long. Lift your arms, chest, and legs slightly from the floor while keeping your neck neutral. Hold briefly, then lower slowly.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Superman'),
+    muscles: [m('lower-back', 'primary', 1), m('glutes', 'secondary', 0.7), m('hamstrings', 'secondary', 0.55), m('upper-back', 'secondary', 0.45), m('abs', 'stabilizer', 0.25)],
+  },
+  {
+    slug: 'bodyweight-push-up', name: 'Push-Up', family: 'press', primaryPattern: 'push', difficulty: 1, unilateral: false, equipment: 'bodyweight',
+    instructions: 'Begin in a high plank with hands just outside shoulder width. Lower your chest toward the floor while keeping your body straight. Press the floor away to return to the starting position.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Pushups'),
+    muscles: [m('chest', 'primary', 1), m('triceps', 'secondary', 0.75), m('front-delts', 'secondary', 0.65), m('abs', 'stabilizer', 0.45), m('glutes', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'bodyweight-close-grip-push-up', name: 'Close-Grip Push-Up', family: 'press', primaryPattern: 'push', difficulty: 2, unilateral: false, equipment: 'bodyweight',
+    instructions: 'Begin in a high plank with your hands slightly narrower than shoulder width. Keep your elbows close as you lower your chest. Press through your palms to return without letting your hips sag.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Push-Ups_-_Close_Triceps_Position'),
+    muscles: [m('triceps', 'primary', 1), m('chest', 'primary', 0.75), m('front-delts', 'secondary', 0.55), m('abs', 'stabilizer', 0.4)],
+  },
+  {
+    slug: 'bodyweight-single-arm-push-up', name: 'Single-Arm Push-Up', family: 'press', primaryPattern: 'push', difficulty: 3, unilateral: true, equipment: 'bodyweight',
+    instructions: 'Set a wide-foot high plank with one hand beneath the working shoulder and the other behind your back. Brace against rotation as you lower toward the floor. Press firmly back to the start and complete both sides.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Single-Arm_Push-Up'),
+    muscles: [m('chest', 'primary', 1), m('triceps', 'primary', 0.8), m('front-delts', 'secondary', 0.7), m('obliques', 'stabilizer', 0.65), m('abs', 'stabilizer', 0.55)],
+  },
+  {
+    slug: 'bodyweight-plyometric-push-up', name: 'Plyometric Push-Up', family: 'press', primaryPattern: 'push', difficulty: 3, unilateral: false, equipment: 'bodyweight',
+    instructions: 'Begin in a rigid high plank. Lower your chest under control, then press explosively so your hands briefly leave the floor. Land softly through bent elbows and reset before the next repetition.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Plyo_Push-up'),
+    muscles: [m('chest', 'primary', 1), m('triceps', 'primary', 0.8), m('front-delts', 'secondary', 0.7), m('abs', 'stabilizer', 0.45)],
+  },
+  {
+    slug: 'bodyweight-push-up-side-plank', name: 'Push-Up to Side Plank', family: 'press', primaryPattern: 'rotate', difficulty: 2, unilateral: true, equipment: 'bodyweight',
+    instructions: 'Perform a controlled push-up from a high plank. Shift onto one hand and rotate into a side plank as the free arm reaches upward. Return to a square plank and alternate sides.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Push_Up_to_Side_Plank'),
+    muscles: [m('chest', 'primary', 0.9), m('obliques', 'primary', 0.85), m('triceps', 'secondary', 0.65), m('front-delts', 'secondary', 0.65), m('abs', 'stabilizer', 0.55)],
+  },
+  {
+    slug: 'bodyweight-plank', name: 'Plank', family: 'plank', primaryPattern: 'plank', difficulty: 1, unilateral: false, equipment: 'bodyweight',
+    instructions: 'Support yourself on your forearms and toes with elbows beneath your shoulders. Brace your abdomen and glutes to keep a straight line from head to heels. Hold without letting your hips sag.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Plank'),
+    muscles: [m('abs', 'primary', 1), m('obliques', 'secondary', 0.65), m('front-delts', 'secondary', 0.45), m('glutes', 'stabilizer', 0.4), m('lower-back', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'bodyweight-side-plank', name: 'Side Plank', family: 'plank', primaryPattern: 'plank', difficulty: 1, unilateral: true, equipment: 'bodyweight',
+    instructions: 'Lie on one side and support yourself on your forearm with the elbow beneath the shoulder. Lift your hips until your body forms a straight line. Hold the brace, lower with control, and repeat on the other side.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Side_Bridge'),
+    muscles: [m('obliques', 'primary', 1), m('abs', 'secondary', 0.7), m('side-delts', 'secondary', 0.5), m('glutes', 'stabilizer', 0.45), m('lower-back', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'bodyweight-dead-bug', name: 'Dead Bug', family: 'plank', primaryPattern: 'plank', difficulty: 1, unilateral: true, equipment: 'bodyweight',
+    instructions: 'Lie on your back with hips and knees bent to 90 degrees and arms pointing upward. Flatten your lower back, then extend one leg and the opposite arm without losing the brace. Return and alternate sides.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Dead_Bug'),
+    muscles: [m('abs', 'primary', 1), m('obliques', 'secondary', 0.65), m('quads', 'secondary', 0.35), m('glutes', 'stabilizer', 0.3), m('lower-back', 'stabilizer', 0.25)],
+  },
+  {
+    slug: 'bodyweight-reverse-crunch', name: 'Reverse Crunch', family: 'curl', primaryPattern: 'plank', difficulty: 1, unilateral: false, equipment: 'bodyweight',
+    instructions: 'Lie on your back with hips and knees bent and arms by your sides. Draw your knees toward your chest and curl your pelvis slightly from the floor. Pause, then lower your hips slowly without swinging.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Reverse_Crunch'),
+    muscles: [m('abs', 'primary', 1), m('obliques', 'secondary', 0.4), m('lower-back', 'stabilizer', 0.25)],
+  },
+  {
+    slug: 'bodyweight-air-bike', name: 'Bicycle Crunch', family: 'rotation', primaryPattern: 'rotate', difficulty: 1, unilateral: true, equipment: 'bodyweight',
+    instructions: 'Lie on your back with hands lightly beside your head and knees raised. Extend one leg as you rotate the opposite shoulder toward the bent knee. Return through center and alternate smoothly without pulling on your neck.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Air_Bike'),
+    muscles: [m('abs', 'primary', 1), m('obliques', 'primary', 0.85), m('quads', 'secondary', 0.35), m('lower-back', 'stabilizer', 0.25)],
+  },
+  {
+    slug: 'bodyweight-jackknife-sit-up', name: 'Jackknife Sit-Up', family: 'curl', primaryPattern: 'plank', difficulty: 2, unilateral: false, equipment: 'bodyweight',
+    instructions: 'Lie on your back with arms overhead and legs extended. Lift your torso and straight legs together, reaching your hands toward your feet. Pause in the folded position, then lower under control.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Jackknife_Sit-Up'),
+    muscles: [m('abs', 'primary', 1), m('quads', 'secondary', 0.45), m('obliques', 'stabilizer', 0.4), m('lower-back', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'bodyweight-russian-twist', name: 'Russian Twist', family: 'rotation', primaryPattern: 'rotate', difficulty: 2, unilateral: true, equipment: 'bodyweight',
+    instructions: 'Sit with knees bent, feet lightly on the floor, and torso leaned back with a long spine. Clasp your hands and rotate your ribs toward one side. Return through center and rotate to the other side without using momentum.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Russian_Twist'),
+    muscles: [m('obliques', 'primary', 1), m('abs', 'primary', 0.8), m('lower-back', 'stabilizer', 0.4), m('glutes', 'stabilizer', 0.25)],
+  },
+  {
+    slug: 'bodyweight-mountain-climber', name: 'Mountain Climber', family: 'plank', primaryPattern: 'plank', difficulty: 2, unilateral: true, equipment: 'bodyweight',
+    instructions: 'Begin in a strong high plank. Drive one knee toward your chest, then quickly switch legs while keeping your shoulders over your hands. Continue alternating without letting your hips rise or sag.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Mountain_Climbers'),
+    muscles: [m('abs', 'primary', 0.9), m('quads', 'primary', 0.8), m('front-delts', 'secondary', 0.55), m('chest', 'stabilizer', 0.4), m('glutes', 'stabilizer', 0.35)],
+  },
+  {
+    slug: 'bodyweight-spider-crawl', name: 'Spider Crawl', family: 'plank', primaryPattern: 'plank', difficulty: 2, unilateral: true, equipment: 'bodyweight',
+    instructions: 'Begin in a low push-up position with your body braced. Bring one knee toward the same-side elbow while supporting your weight through both hands. Return the leg and alternate sides with controlled movement.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Spider_Crawl'),
+    muscles: [m('abs', 'primary', 0.9), m('obliques', 'primary', 0.8), m('chest', 'secondary', 0.55), m('front-delts', 'secondary', 0.55), m('triceps', 'stabilizer', 0.4)],
+  },
 ];
 
 // Metadata belongs to the local TRX catalog. Keeping it keyed by slug makes
@@ -402,6 +546,30 @@ const metadataBySlug = {
   'dumbbell-shrug': { force: 'pull', mechanic: 'isolation', category: 'strength', variationGroup: 'shrug' },
   'dumbbell-side-bend': { force: 'pull', mechanic: 'isolation', category: 'core', variationGroup: 'side-bend' },
   'dumbbell-spell-caster': { force: 'pull', mechanic: 'compound', category: 'core', variationGroup: 'spell-caster' },
+  'bodyweight-squat': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'squat' },
+  'bodyweight-walking-lunge': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'forward-lunge' },
+  'bodyweight-crossover-reverse-lunge': { force: 'mixed', mechanic: 'compound', category: 'conditioning', variationGroup: 'crossover-reverse-lunge' },
+  'bodyweight-jump-squat': { force: 'push', mechanic: 'compound', category: 'conditioning', variationGroup: 'jump-squat' },
+  'bodyweight-split-jump': { force: 'push', mechanic: 'compound', category: 'conditioning', variationGroup: 'split-jump' },
+  'bodyweight-glute-bridge': { force: 'push', mechanic: 'isolation', category: 'strength', variationGroup: 'glute-bridge' },
+  'bodyweight-single-leg-glute-bridge': { force: 'push', mechanic: 'isolation', category: 'strength', variationGroup: 'single-leg-glute-bridge' },
+  'bodyweight-glute-kickback': { force: 'push', mechanic: 'isolation', category: 'strength', variationGroup: 'glute-kickback' },
+  'bodyweight-inchworm': { force: 'mixed', mechanic: 'compound', category: 'mobility', variationGroup: 'inchworm' },
+  'bodyweight-superman': { force: 'static', mechanic: 'compound', category: 'strength', variationGroup: 'superman' },
+  'bodyweight-push-up': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'push-up' },
+  'bodyweight-close-grip-push-up': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'close-grip-push-up' },
+  'bodyweight-single-arm-push-up': { force: 'push', mechanic: 'compound', category: 'strength', variationGroup: 'single-arm-push-up' },
+  'bodyweight-plyometric-push-up': { force: 'push', mechanic: 'compound', category: 'conditioning', variationGroup: 'plyometric-push-up' },
+  'bodyweight-push-up-side-plank': { force: 'mixed', mechanic: 'compound', category: 'core', variationGroup: 'push-up-side-plank' },
+  'bodyweight-plank': { force: 'static', mechanic: 'compound', category: 'core', variationGroup: 'plank' },
+  'bodyweight-side-plank': { force: 'static', mechanic: 'compound', category: 'core', variationGroup: 'side-plank' },
+  'bodyweight-dead-bug': { force: 'static', mechanic: 'compound', category: 'core', variationGroup: 'dead-bug' },
+  'bodyweight-reverse-crunch': { force: 'pull', mechanic: 'isolation', category: 'core', variationGroup: 'reverse-crunch' },
+  'bodyweight-air-bike': { force: 'mixed', mechanic: 'compound', category: 'core', variationGroup: 'bicycle-crunch' },
+  'bodyweight-jackknife-sit-up': { force: 'pull', mechanic: 'compound', category: 'core', variationGroup: 'jackknife-sit-up' },
+  'bodyweight-russian-twist': { force: 'mixed', mechanic: 'compound', category: 'core', variationGroup: 'russian-twist' },
+  'bodyweight-mountain-climber': { force: 'mixed', mechanic: 'compound', category: 'conditioning', variationGroup: 'mountain-climber' },
+  'bodyweight-spider-crawl': { force: 'mixed', mechanic: 'compound', category: 'conditioning', variationGroup: 'spider-crawl' },
 } satisfies Record<string, ExerciseMetadata>;
 
 async function seedExercises() {
@@ -434,7 +602,7 @@ async function seedExercises() {
     for (const exerciseData of catalog) {
       const {
         muscles: muscleData,
-        sourceName = exerciseData.equipment === 'dumbbell'
+        sourceName = exerciseData.equipment
           ? 'free-exercise-db'
           : 'TRX Training',
         ...values
@@ -479,7 +647,7 @@ async function seedExercises() {
     return createdMappings;
   });
 
-  console.log('Seeded TRX and dumbbell exercise catalog');
+  console.log('Seeded TRX, dumbbell, and bodyweight exercise catalog');
   console.log(`Exercises processed: ${catalog.length}`);
   console.log(`Muscle mappings created: ${mappingCount}`);
 }

@@ -30,6 +30,7 @@ const input = {
   level: 'intermediate' as const,
   focus: 'full_body' as const,
   intensity: 7,
+  equipment: ['suspension_trainer', 'dumbbell'] as const,
 };
 
 function seededRandom(seed: number) {
@@ -81,6 +82,49 @@ test('enforces difficulty and distinct variation groups when alternatives exist'
       'suspension_trainer',
       'dumbbell',
     ],
+  );
+});
+
+test('filters unselected equipment and balances three selected types', () => {
+  const bodyweightCatalog: CandidateExercise[] = Array.from(
+    { length: 12 },
+    (_, index) => ({
+      ...catalog[index],
+      id: `bodyweight-${index}`,
+      slug: `bodyweight-${index}`,
+      variationGroup: `bodyweight-${index}`,
+      equipment: 'bodyweight',
+      difficulty: 1,
+    }),
+  );
+  const expandedCatalog = [...catalog, ...bodyweightCatalog];
+  const bodyweightOnly = selectWorkoutCandidates({
+    input: { ...input, equipment: ['bodyweight'] },
+    catalog: expandedCatalog,
+    recentWorkouts: [],
+    random: seededRandom(8),
+  });
+
+  assert.equal(bodyweightOnly.length, 12);
+  assert.ok(bodyweightOnly.every(({ equipment }) => equipment === 'bodyweight'));
+
+  const allEquipment = selectWorkoutCandidates({
+    input: {
+      ...input,
+      equipment: ['suspension_trainer', 'dumbbell', 'bodyweight'],
+    },
+    catalog: expandedCatalog,
+    recentWorkouts: [],
+    random: seededRandom(9),
+  });
+  const counts = allEquipment.reduce((result, exercise) => {
+    result.set(exercise.equipment, (result.get(exercise.equipment) ?? 0) + 1);
+    return result;
+  }, new Map<string, number>());
+
+  assert.deepEqual(
+    [...counts.values()].sort((left, right) => left - right),
+    [4, 4, 4],
   );
 });
 

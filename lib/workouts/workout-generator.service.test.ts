@@ -34,20 +34,37 @@ const input = {
   level: 'intermediate' as const,
   focus: 'full_body' as const,
   intensity: 7,
+  equipment: ['suspension_trainer', 'dumbbell'] as const,
 };
 
-test('level filtering is the only pre-LLM catalog selection', async () => {
+test('filters the pre-LLM catalog by level and selected equipment', async () => {
   const { getEligibleExerciseCatalog } = await servicePromise;
-  const eligible = getEligibleExerciseCatalog(catalog, 'intermediate');
+  const eligible = getEligibleExerciseCatalog(
+    catalog,
+    'intermediate',
+    ['suspension_trainer', 'dumbbell'],
+  );
   assert.deepEqual(
     eligible.map(({ id }) => id),
     catalog.filter(({ difficulty }) => difficulty <= 2).map(({ id }) => id),
   );
+
+  const dumbbellsOnly = getEligibleExerciseCatalog(
+    catalog,
+    'intermediate',
+    ['dumbbell'],
+  );
+  assert.ok(dumbbellsOnly.length > 0);
+  assert.ok(dumbbellsOnly.every(({ equipment }) => equipment === 'dumbbell'));
 });
 
 test('planner prompt receives compact full catalog metadata and five-workout context shape', async () => {
   const { buildWorkoutPrompts, getEligibleExerciseCatalog } = await servicePromise;
-  const eligible = getEligibleExerciseCatalog(catalog, 'intermediate');
+  const eligible = getEligibleExerciseCatalog(
+    catalog,
+    'intermediate',
+    ['suspension_trainer', 'dumbbell'],
+  );
   const recent = [{
     workoutId: 'workout-1',
     goal: 'strength',
@@ -73,6 +90,7 @@ test('planner prompt receives compact full catalog metadata and five-workout con
   assert.match(prompts.systemPrompt, /Core is not a mandatory phase/);
   assert.match(prompts.systemPrompt, /never add a bench, chair, box, rack/);
   assert.match(prompts.systemPrompt, /difference of only one/);
+  assert.doesNotMatch(prompts.systemPrompt, /athlete's body and the floor/);
   assert.match(
     prompts.systemPrompt,
     /never use the same exercise ID more than twice/,
@@ -83,9 +101,30 @@ test('planner prompt receives compact full catalog metadata and five-workout con
   assert.match(prompts.systemPrompt, /silently verify that JSON\.parse\(\)/);
 });
 
+test('planner prompt describes bodyweight-only constraints dynamically', async () => {
+  const { buildWorkoutPrompts } = await servicePromise;
+  const bodyweightExercise = { ...catalog[0], equipment: 'bodyweight' };
+  const prompts = buildWorkoutPrompts(
+    { ...input, equipment: ['bodyweight'] },
+    [bodyweightExercise],
+    [],
+  );
+
+  assert.match(prompts.systemPrompt, /selected equipment \(bodyweight\)/);
+  assert.match(prompts.systemPrompt, /athlete's body and the floor/);
+  assert.doesNotMatch(prompts.systemPrompt, /Dumbbell exercises/);
+  assert.deepEqual(JSON.parse(prompts.userPrompt).preferences.equipment, [
+    'bodyweight',
+  ]);
+});
+
 test('retries a plan rejected for consecutive duplicate exercises', async () => {
   const { generateAiPlan, getEligibleExerciseCatalog } = await servicePromise;
-  const eligible = getEligibleExerciseCatalog(catalog, 'intermediate');
+  const eligible = getEligibleExerciseCatalog(
+    catalog,
+    'intermediate',
+    ['suspension_trainer', 'dumbbell'],
+  );
   const completionInputs: Array<{
     systemPrompt: string;
     maxAttempts?: number;
@@ -144,7 +183,11 @@ test('retries a plan rejected for consecutive duplicate exercises', async () => 
 
 test('does not spend the second plan attempt after a provider rate limit', async () => {
   const { generateAiPlan, getEligibleExerciseCatalog } = await servicePromise;
-  const eligible = getEligibleExerciseCatalog(catalog, 'intermediate');
+  const eligible = getEligibleExerciseCatalog(
+    catalog,
+    'intermediate',
+    ['suspension_trainer', 'dumbbell'],
+  );
   let callCount = 0;
 
   await assert.rejects(

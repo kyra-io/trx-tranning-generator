@@ -35,6 +35,10 @@ import {
   type RecentWorkoutContext,
 } from '@/lib/workouts/workout.repository';
 import { getProfileById } from '@/lib/profiles/profile.repository';
+import {
+  type WorkoutEquipment,
+  workoutEquipmentLabels,
+} from '@/lib/workouts/workout-equipment';
 
 export type { WorkoutFocus, WorkoutGoal, WorkoutLevel } from '@/lib/workouts/workout-candidate-selector';
 
@@ -44,6 +48,7 @@ export type GenerateWorkoutInput = {
   level: WorkoutLevel;
   focus: WorkoutFocus;
   intensity: number;
+  equipment: readonly WorkoutEquipment[];
 };
 
 type CatalogExercise = CandidateExercise;
@@ -155,9 +160,13 @@ async function loadExerciseCatalog(): Promise<CatalogExercise[]> {
 export function getEligibleExerciseCatalog(
   catalog: CatalogExercise[],
   level: WorkoutLevel,
+  equipment: readonly WorkoutEquipment[],
 ) {
+  const selectedEquipment = new Set<string>(equipment);
   return catalog.filter(
-    (exercise) => exercise.difficulty <= maximumDifficulty[level],
+    (exercise) =>
+      exercise.difficulty <= maximumDifficulty[level] &&
+      selectedEquipment.has(exercise.equipment),
   );
 }
 
@@ -261,7 +270,18 @@ export function buildWorkoutPrompts(
   recentWorkouts: RecentWorkoutContext[],
 ) {
   const tolerance = getDurationTolerance(input.durationMinutes);
-  const systemPrompt = `You are responsible for designing a complete mixed TRX suspension-trainer and dumbbell workout from a closed exercise catalog.
+  const equipmentNames = input.equipment.map(
+    (equipment) => workoutEquipmentLabels[equipment],
+  );
+  const equipmentConstraints = [
+    input.equipment.includes('dumbbell')
+      ? 'Dumbbell exercises must require only dumbbells and the floor: never add a bench, chair, box, rack, ball, platform, or other accessory.'
+      : null,
+    input.equipment.includes('bodyweight')
+      ? 'Bodyweight exercises must require only the athlete\'s body and the floor: never add a wall, bar, bench, chair, box, rack, ball, platform, or other accessory.'
+      : null,
+  ].filter((constraint): constraint is string => constraint !== null).join(' ');
+  const systemPrompt = `You are responsible for designing a complete workout using only the selected equipment (${equipmentNames.join(', ')}) from a closed exercise catalog.
 Choose the exercises, their order and prescriptions, and the workout's block structure yourself.
 
 Priorities, in order:
@@ -272,7 +292,7 @@ Priorities, in order:
 5. Create meaningful variation from recent workouts. Repetition is allowed when it is a sound programming choice; novelty is secondary to coherence.
 6. Keep the total duration realistic and within the stated tolerance.
 7. Use only exercise IDs from the supplied eligible catalog.
-8. Keep the number of TRX and dumbbell exercise entries as even as possible: use the same number when the total is even, or allow a difference of only one when it is odd. Dumbbell exercises must require only dumbbells and the floor: never add a bench, chair, box, rack, ball, platform, or other accessory.
+8. Use every selected equipment type and keep their exercise-entry counts as even as possible: use the same number when the total divides evenly, or allow a difference of only one. ${equipmentConstraints}
 
 Warm-up is mandatory, proportional to the session, and represented separately. Core is not a mandatory phase; include core work only when it serves the requested workout. Avoid multiple near-identical variation groups unless there is a clear programming reason. Prefer each exercise once. A purposeful repeat is allowed, but never use the same exercise ID more than twice anywhere in the workout and never repeat it in consecutive positions.
 
@@ -478,7 +498,11 @@ export async function generateWorkout(
     loadExerciseCatalog(),
     getRecentWorkoutContext(profileId, FALLBACK_HISTORY_LIMIT),
   ]);
-  const eligibleExercises = getEligibleExerciseCatalog(catalog, input.level);
+  const eligibleExercises = getEligibleExerciseCatalog(
+    catalog,
+    input.level,
+    input.equipment,
+  );
   const plannerHistory = recentWorkouts.slice(0, RECENT_WORKOUT_LIMIT);
 
   if (eligibleExercises.length < 2) {
@@ -488,9 +512,19 @@ export async function generateWorkout(
     );
   }
 
+  const availableEquipment = new Set(
+    eligibleExercises.map((exercise) => exercise.equipment),
+  );
+  if (input.equipment.some((equipment) => !availableEquipment.has(equipment))) {
+    throw new WorkoutGenerationError(
+      'NO_COMPATIBLE_EXERCISES',
+      'No compatible exercises available',
+    );
+  }
+
   const candidates = selectWorkoutCandidates({
     input,
-    catalog,
+    catalog: eligibleExercises,
     recentWorkouts,
   });
 

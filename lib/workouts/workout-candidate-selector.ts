@@ -1,3 +1,5 @@
+import type { WorkoutEquipment } from './workout-equipment';
+
 export type WorkoutGoal = 'strength' | 'hypertrophy' | 'general_fitness';
 export type WorkoutLevel = 'beginner' | 'intermediate' | 'advanced';
 export type WorkoutFocus =
@@ -12,6 +14,7 @@ export type WorkoutCandidateInput = {
   level: WorkoutLevel;
   focus: WorkoutFocus;
   intensity: number;
+  equipment: readonly WorkoutEquipment[];
 };
 
 export type CandidateExercise = {
@@ -237,7 +240,9 @@ export function selectWorkoutCandidates({
   random?: RandomSource;
 }): SelectedWorkoutCandidate[] {
   const eligible = catalog.filter(
-    (exercise) => exercise.difficulty <= maximumDifficulty[input.level],
+    (exercise) =>
+      exercise.difficulty <= maximumDifficulty[input.level] &&
+      input.equipment.includes(exercise.equipment as WorkoutEquipment),
   );
   const targetSize = Math.min(getCandidatePoolSize(input.durationMinutes), eligible.length);
   const selected: SelectedWorkoutCandidate[] = [];
@@ -345,11 +350,13 @@ export function selectWorkoutCandidates({
     return true;
   };
 
-  // Include every available equipment type before filling movement-pattern
-  // coverage, so mixed TRX/dumbbell workouts do not depend on chance alone.
+  // Include every selected equipment type before filling movement-pattern
+  // coverage, so balanced workouts do not depend on chance alone.
   for (const equipment of availableEquipment) {
     if (selected.length >= targetSize) break;
-    choose(undefined, false, input.focus !== 'full_body', equipment);
+    if (!choose(undefined, false, input.focus !== 'full_body', equipment)) {
+      choose(undefined, true, false, equipment);
+    }
   }
 
   // Seed coverage first, then fill by weighted sampling. Full body therefore

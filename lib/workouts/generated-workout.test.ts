@@ -135,6 +135,25 @@ test('requires a balanced distribution between available equipment types', () =>
   );
 });
 
+test('accepts a balanced distribution across three equipment types', () => {
+  const equipment = new Map([
+    ['exercise-1', 'suspension_trainer'],
+    ['exercise-2', 'dumbbell'],
+    ['exercise-3', 'bodyweight'],
+  ]);
+  const workout = createWorkout();
+  workout.blocks[0].exercises.push(exercise('exercise-3'));
+
+  assert.doesNotThrow(() =>
+    validateGeneratedWorkoutBusinessRules(
+      workout,
+      new Set(equipment.keys()),
+      30,
+      equipment,
+    ),
+  );
+});
+
 test('uses a centralized ten-percent duration tolerance with a three-minute floor', () => {
   const workout = createWorkout();
   workout.estimatedDurationMinutes = 34;

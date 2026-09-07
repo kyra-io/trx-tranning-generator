@@ -4,12 +4,13 @@ import type { GenerateWorkoutInput } from '../lib/workouts/workout-generator.ser
 
 loadEnvConfig(process.cwd());
 
-const repeatedInput = {
+const repeatedInput: GenerateWorkoutInput = {
   goal: 'strength' as const,
   durationMinutes: 30,
   level: 'intermediate' as const,
   focus: 'full_body' as const,
   intensity: 7,
+  equipment: ['suspension_trainer', 'dumbbell'],
 };
 
 const goalScenarios = [

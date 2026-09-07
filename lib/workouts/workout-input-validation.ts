@@ -9,6 +9,10 @@ import type {
   WorkoutDifficulty,
 } from '@/lib/workouts/workout.service';
 import type { ValidationDetail } from '@/lib/profiles/profile.service';
+import {
+  WORKOUT_EQUIPMENT,
+  type WorkoutEquipment,
+} from '@/lib/workouts/workout-equipment';
 
 const goals = new Set<WorkoutGoal>([
   'strength',
@@ -31,6 +35,7 @@ const difficulties = new Set<WorkoutDifficulty>([
   'good',
   'too_hard',
 ]);
+const equipmentValues = new Set<WorkoutEquipment>(WORKOUT_EQUIPMENT);
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -63,6 +68,21 @@ export function validateGenerateWorkoutInput(body: unknown):
     details.push({
       path: ['durationMinutes'],
       message: 'Expected an integer between 15 and 60',
+    });
+  }
+  if (
+    !Array.isArray(body.equipment) ||
+    body.equipment.length === 0 ||
+    body.equipment.some(
+      (equipment) =>
+        typeof equipment !== 'string' ||
+        !equipmentValues.has(equipment as WorkoutEquipment),
+    ) ||
+    new Set(body.equipment).size !== body.equipment.length
+  ) {
+    details.push({
+      path: ['equipment'],
+      message: 'Expected a non-empty array of unique suspension_trainer, dumbbell, or bodyweight values',
     });
   }
   if (typeof body.level !== 'string' || !levels.has(body.level as WorkoutLevel)) {

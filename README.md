@@ -4,9 +4,9 @@ A self-hosted, mobile-first TRX workout generator with optional AI-assisted work
 
 ## Features
 
-- Generates persisted TRX workouts by goal, duration, level, focus, and intensity
-- Uses a curated local TRX, dumbbell, and muscle catalog
-- Keeps suspension-trainer and dumbbell movements evenly distributed without requiring a bench or other accessories
+- Generates persisted workouts by goal, duration, level, focus, intensity, and selected equipment
+- Uses a curated local TRX, dumbbell, bodyweight, and muscle catalog
+- Supports TRX, dumbbells, and no-equipment training, balancing every selected equipment type
 - Supports AI-assisted composition through Mistral, with a deterministic fallback
 - Provides workout history, completion feedback, and workout deletion
 - Shows workout and exercise muscle heatmaps
@@ -56,7 +56,7 @@ For a new database, initialize the muscle and exercise catalog once:
 docker compose run --rm app ./docker-bootstrap.sh
 ```
 
-The bootstrap is idempotent. It seeds muscles, the complete local TRX and dumbbell exercise catalog, and verified external exercise image mappings. It does not add a development workout.
+The bootstrap is idempotent. It seeds muscles, the complete local TRX, dumbbell, and bodyweight exercise catalog, and verified external exercise image mappings. It does not add a development workout.
 
 ### 4. Open the application
 
@@ -73,7 +73,7 @@ Catalog initialization is intentionally manual:
 docker compose run --rm app ./docker-bootstrap.sh
 ```
 
-Run it after the first startup of a new database. It safely seeds the system muscle data, the local TRX and dumbbell exercise catalog, and verified external exercise image mappings, and can be run again.
+Run it after the first startup of a new database. It safely seeds the system muscle data, the local TRX, dumbbell, and bodyweight exercise catalog, and verified external exercise image mappings, and can be run again. Existing installations should run the bootstrap again after updating to add newly curated catalog entries.
 
 The sample development workout is not part of the production bootstrap. Its npm script is documented under [Database commands](#database-commands).
 
@@ -156,7 +156,7 @@ These scripts run against the `DATABASE_URL` in the current environment:
 | `npm run db:studio` | Open Drizzle Studio. |
 | `npm run db:seed` | Seed the muscle catalog. |
 | `npm run db:seed:exercise` | Seed the legacy single exercise fixture. |
-| `npm run db:seed:exercises` | Seed the complete local TRX and dumbbell exercise catalog. |
+| `npm run db:seed:exercises` | Seed the complete local TRX, dumbbell, and bodyweight exercise catalog. |
 | `npm run db:seed:exercise-images` | Add verified external image mappings for catalog exercises. |
 | `npm run db:seed:workout` | Recreate the `Full Body Strength` development workout. |
 
@@ -197,11 +197,11 @@ Mistral is used only for AI-assisted workout composition. Configure `MISTRAL_API
 
 ## Exercise Data & Visual References
 
-This project uses and adapts information from multiple external sources when building its curated TRX and dumbbell exercise catalog. Not every exercise or catalog field comes directly from these sources.
+This project uses and adapts information from multiple external sources when building its curated TRX, dumbbell, and bodyweight exercise catalog. Not every exercise or catalog field comes directly from these sources.
 
 ### Free Exercise DB
 
-[free-exercise-db](https://github.com/yuhonas/free-exercise-db) is the source for the dumbbell exercises and is also used as a reference for parts of the TRX catalog. The dumbbell subset excludes movements that require a bench, chair, box, rack, ball, platform, or other accessory. Referenced or adapted metadata may include exercise names, movement information, muscle groups, instructions, and image references.
+[free-exercise-db](https://github.com/yuhonas/free-exercise-db) is the source for the dumbbell and bodyweight exercises and is also used as a reference for parts of the TRX catalog. The dumbbell subset excludes movements that require equipment beyond dumbbells and the floor. The bodyweight subset requires only the athlete's body and the floor. Referenced or adapted metadata may include exercise names, movement information, muscle groups, instructions, and image references.
 
 The original dataset is distributed under the Unlicense. See the [free-exercise-db license](https://github.com/yuhonas/free-exercise-db/blob/main/LICENSE.md) for its terms.
 
