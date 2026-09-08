@@ -15,7 +15,8 @@ import {
 } from '@/lib/db/schema';
 import {
   type GeneratedWorkout,
-  generatedWorkoutJsonSchema,
+  GeneratedWorkoutValidationError,
+  buildGeneratedWorkoutJsonSchema,
   generatedWorkoutSchema,
   getDurationTolerance,
   validateGeneratedWorkoutBusinessRules,
@@ -36,7 +37,9 @@ import {
 } from '@/lib/workouts/workout.repository';
 import { getProfileById } from '@/lib/profiles/profile.repository';
 import {
+  buildWorkoutEquipmentPlan,
   type WorkoutEquipment,
+  type WorkoutEquipmentPlan,
   workoutEquipmentLabels,
 } from '@/lib/workouts/workout-equipment';
 
@@ -198,7 +201,7 @@ function fallbackPrescription(
   };
 }
 
-function targetExerciseCount(durationMinutes: number) {
+export function getTargetExerciseCount(durationMinutes: number) {
   if (durationMinutes <= 20) return 4;
   if (durationMinutes <= 35) return 6;
   if (durationMinutes <= 50) return 8;
@@ -209,7 +212,10 @@ export function generateDeterministicPlan(
   input: GenerateWorkoutInput,
   candidates: CatalogExercise[],
 ): GeneratedWorkout {
-  const selected = candidates.slice(0, targetExerciseCount(input.durationMinutes));
+  const selected = candidates.slice(
+    0,
+    getTargetExerciseCount(input.durationMinutes),
+  );
   const warmupCount = input.durationMinutes >= 45 ? 2 : 1;
   const warmupExercises = selected.slice(0, warmupCount);
   const workExercises = selected.slice(warmupCount);
@@ -270,6 +276,10 @@ export function buildWorkoutPrompts(
   recentWorkouts: RecentWorkoutContext[],
 ) {
   const tolerance = getDurationTolerance(input.durationMinutes);
+  const equipmentPlan = buildWorkoutEquipmentPlan(
+    input.equipment,
+    getTargetExerciseCount(input.durationMinutes),
+  );
   const equipmentNames = input.equipment.map(
     (equipment) => workoutEquipmentLabels[equipment],
   );
@@ -292,7 +302,8 @@ Priorities, in order:
 5. Create meaningful variation from recent workouts. Repetition is allowed when it is a sound programming choice; novelty is secondary to coherence.
 6. Keep the total duration realistic and within the stated tolerance.
 7. Use only exercise IDs from the supplied eligible catalog.
-8. Use every selected equipment type and keep their exercise-entry counts as even as possible: use the same number when the total divides evenly, or allow a difference of only one. ${equipmentConstraints}
+8. Aim for ${equipmentPlan.targetExerciseEntries} exercise entries across the warm-up and all workout blocks combined; between ${equipmentPlan.targetExerciseEntries - equipmentPlan.exerciseEntryTolerance} and ${equipmentPlan.targetExerciseEntries + equipmentPlan.exerciseEntryTolerance} entries is acceptable. Every warm-up or block exercise counts as one entry, including repeated exercises.
+9. Include every selected equipment type. Equipment-entry counts may differ by at most ${equipmentPlan.maximumEquipmentCountDifference}. Aim for this balanced distribution: ${formatEquipmentCounts(equipmentPlan.balancedTargetCounts)}, but these exact counts are not required. ${equipmentConstraints}
 
 Warm-up is mandatory, proportional to the session, and represented separately. Core is not a mandatory phase; include core work only when it serves the requested workout. Avoid multiple near-identical variation groups unless there is a clear programming reason. Prefer each exercise once. A purposeful repeat is allowed, but never use the same exercise ID more than twice anywhere in the workout and never repeat it in consecutive positions.
 
@@ -333,10 +344,12 @@ OUTPUT FORMAT — MANDATORY:
     systemPrompt,
     userPrompt: JSON.stringify({
       preferences: input,
+      equipmentPlan,
       durationToleranceMinutes: tolerance,
       eligibleExerciseCatalog: exerciseCatalog,
       recentWorkouts: history,
     }),
+    equipmentPlan,
   };
 }
 
@@ -354,6 +367,9 @@ export async function generateAiPlan(
   const allowedExerciseIds = new Set(
     eligibleExercises.map(({ id }) => id),
   );
+  const workoutJsonSchema = buildGeneratedWorkoutJsonSchema(
+    [...allowedExerciseIds],
+  );
   let previousValidationError: string | null = null;
 
   for (let attempt = 1; attempt <= MAX_AI_PLAN_ATTEMPTS; attempt += 1) {
@@ -364,10 +380,10 @@ IMPORTANT PLAN RETRY: The previous plan was rejected by the workout validator: $
       : prompts.systemPrompt;
     try {
       const completion = await complete({
-        ...prompts,
         systemPrompt,
+        userPrompt: prompts.userPrompt,
         schemaName: 'trx_workout_plan',
-        jsonSchema: generatedWorkoutJsonSchema,
+        jsonSchema: workoutJsonSchema,
         // Plan validation owns the shared two-call retry budget. Prevent the
         // provider client from multiplying it with its own nested retries.
         maxAttempts: 1,
@@ -382,19 +398,79 @@ IMPORTANT PLAN RETRY: The previous plan was rejected by the workout validator: $
         new Map(
           eligibleExercises.map(({ id, equipment }) => [id, equipment]),
         ),
+        prompts.equipmentPlan,
       );
       return { workout, model: completion.model };
     } catch (error) {
-      if (attempt === MAX_AI_PLAN_ATTEMPTS) throw error;
       if (
         error instanceof AiProviderError &&
         !['invalid_output', 'json_validate_failed'].includes(error.code)
       ) throw error;
+
+      logRejectedAiPlan(attempt, error);
+      if (attempt === MAX_AI_PLAN_ATTEMPTS) throw error;
       previousValidationError = summarizeGenerationError(error);
     }
   }
 
   throw new Error('AI returned no valid workout plan');
+}
+
+function logRejectedAiPlan(attempt: number, error: unknown) {
+  const structuredError = error instanceof GeneratedWorkoutValidationError
+    ? error
+    : null;
+
+  console.warn('AI workout plan rejected', {
+    attempt,
+    code: structuredError?.code ??
+      (error instanceof AiProviderError ? error.code : 'INVALID_PLAN'),
+    message: summarizeGenerationError(error),
+    ...(structuredError ? { details: structuredError.details } : {}),
+  });
+}
+
+function formatEquipmentCounts(
+  counts: WorkoutEquipmentPlan['balancedTargetCounts'],
+) {
+  return Object.entries(counts)
+    .map(([equipment, count]) => `${equipment}=${count}`)
+    .join(', ');
+}
+
+export function assertCandidatePlanIsViable(
+  candidates: CatalogExercise[],
+  equipmentPlan: WorkoutEquipmentPlan,
+) {
+  if (candidates.length < equipmentPlan.targetExerciseEntries) {
+    throw new WorkoutGenerationError(
+      'NO_COMPATIBLE_EXERCISES',
+      'No compatible exercises available',
+    );
+  }
+
+  const fallbackCandidates = candidates.slice(
+    0,
+    equipmentPlan.targetExerciseEntries,
+  );
+  const candidateCounts = fallbackCandidates.reduce((counts, exercise) => {
+    counts.set(exercise.equipment, (counts.get(exercise.equipment) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
+  const selectedCounts = Object.keys(equipmentPlan.balancedTargetCounts).map(
+    (equipment) => candidateCounts.get(equipment) ?? 0,
+  );
+
+  if (
+    selectedCounts.some((count) => count === 0) ||
+    Math.max(...selectedCounts) - Math.min(...selectedCounts) >
+      equipmentPlan.maximumEquipmentCountDifference
+  ) {
+    throw new WorkoutGenerationError(
+      'NO_COMPATIBLE_EXERCISES',
+      'No compatible exercises available',
+    );
+  }
 }
 
 async function persistGeneratedWorkout(
@@ -527,6 +603,11 @@ export async function generateWorkout(
     catalog: eligibleExercises,
     recentWorkouts,
   });
+  const equipmentPlan = buildWorkoutEquipmentPlan(
+    input.equipment,
+    getTargetExerciseCount(input.durationMinutes),
+  );
+  assertCandidatePlanIsViable(candidates, equipmentPlan);
 
   let generatedWorkout: GeneratedWorkout;
   let aiModel: string | null = null;
@@ -547,6 +628,13 @@ export async function generateWorkout(
       summarizeGenerationError(error),
     );
     generatedWorkout = generateDeterministicPlan(input, candidates);
+    validateGeneratedWorkoutBusinessRules(
+      generatedWorkout,
+      new Set(candidates.map(({ id }) => id)),
+      input.durationMinutes,
+      new Map(candidates.map(({ id, equipment }) => [id, equipment])),
+      equipmentPlan,
+    );
   }
 
   logGenerationSummary({

@@ -1,4 +1,7 @@
-import type { WorkoutEquipment } from './workout-equipment';
+import {
+  WORKOUT_EQUIPMENT,
+  type WorkoutEquipment,
+} from './workout-equipment';
 
 export type WorkoutGoal = 'strength' | 'hypertrophy' | 'general_fitness';
 export type WorkoutLevel = 'beginner' | 'intermediate' | 'advanced';
@@ -249,19 +252,23 @@ export function selectWorkoutCandidates({
   const selectedIds = new Set<string>();
   const selectedGroups = new Set<string>();
   const patterns = desiredPatternOrder(input.focus);
-  const availableEquipment = [
-    ...new Set(eligible.map((exercise) => exercise.equipment)),
-  ];
-  const equipmentAvailability = new Map(
+  const catalogEquipment = new Set(
+    eligible.map((exercise) => exercise.equipment),
+  );
+  const availableEquipment = WORKOUT_EQUIPMENT.filter(
+    (equipment) =>
+      input.equipment.includes(equipment) && catalogEquipment.has(equipment),
+  );
+  const equipmentAvailability = new Map<string, number>(
     availableEquipment.map((equipment) => [
       equipment,
       eligible.filter((exercise) => exercise.equipment === equipment).length,
     ]),
   );
-  const equipmentTargets = new Map(
+  const equipmentTargets = new Map<string, number>(
     availableEquipment.map((equipment) => [equipment, 0]),
   );
-  const equipmentCounts = new Map(
+  const equipmentCounts = new Map<string, number>(
     availableEquipment.map((equipment) => [equipment, 0]),
   );
 
@@ -377,7 +384,7 @@ export function selectWorkoutCandidates({
 
   // Interleave equipment types so the deterministic fallback remains balanced
   // even though it uses only the first portion of this larger candidate pool.
-  const equipmentQueues = new Map(
+  const equipmentQueues = new Map<string, SelectedWorkoutCandidate[]>(
     availableEquipment.map((equipment) => [
       equipment,
       selected.filter((exercise) => exercise.equipment === equipment),

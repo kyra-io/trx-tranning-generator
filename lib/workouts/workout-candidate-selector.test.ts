@@ -126,6 +126,19 @@ test('filters unselected equipment and balances three selected types', () => {
     [...counts.values()].sort((left, right) => left - right),
     [4, 4, 4],
   );
+  assert.deepEqual(
+    allEquipment.slice(0, 8).map(({ equipment }) => equipment),
+    [
+      'suspension_trainer',
+      'dumbbell',
+      'bodyweight',
+      'suspension_trainer',
+      'dumbbell',
+      'bodyweight',
+      'suspension_trainer',
+      'dumbbell',
+    ],
+  );
 });
 
 test('weighted selection varies and strongly discourages the previous workout', () => {

@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { AiProviderError } from '../ai/llm.service';
 import type { CandidateExercise } from './workout-candidate-selector';
+import { buildWorkoutEquipmentPlan } from './workout-equipment';
 process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test';
 
 const servicePromise = import('./workout-generator.service');
@@ -58,6 +59,42 @@ test('filters the pre-LLM catalog by level and selected equipment', async () => 
   assert.ok(dumbbellsOnly.every(({ equipment }) => equipment === 'dumbbell'));
 });
 
+test('checks candidate inventory for the balanced deterministic target', async () => {
+  const {
+    assertCandidatePlanIsViable,
+    getEligibleExerciseCatalog,
+    getTargetExerciseCount,
+  } = await servicePromise;
+  const eligible = getEligibleExerciseCatalog(
+    catalog,
+    'intermediate',
+    ['suspension_trainer', 'dumbbell'],
+  );
+  const plan = buildWorkoutEquipmentPlan(
+    ['suspension_trainer', 'dumbbell'],
+    getTargetExerciseCount(30),
+  );
+
+  assert.doesNotThrow(() => assertCandidatePlanIsViable(eligible, plan));
+  assert.throws(
+    () => assertCandidatePlanIsViable(eligible.slice(0, 4), plan),
+    /No compatible exercises available/,
+  );
+
+  const fiveToThree = [
+    ...catalog.filter(({ equipment }) => equipment === 'suspension_trainer'),
+    { ...catalog[0], id: 'extra-trx' },
+    ...catalog.filter(({ equipment }) => equipment === 'dumbbell').slice(0, 3),
+  ];
+  const eightExercisePlan = buildWorkoutEquipmentPlan(
+    ['suspension_trainer', 'dumbbell'],
+    8,
+  );
+  assert.doesNotThrow(() =>
+    assertCandidatePlanIsViable(fiveToThree, eightExercisePlan),
+  );
+});
+
 test('planner prompt receives compact full catalog metadata and five-workout context shape', async () => {
   const { buildWorkoutPrompts, getEligibleExerciseCatalog } = await servicePromise;
   const eligible = getEligibleExerciseCatalog(
@@ -87,9 +124,20 @@ test('planner prompt receives compact full catalog metadata and five-workout con
   assert.equal('slug' in payload.eligibleExerciseCatalog[0], false);
   assert.equal('activation' in payload.eligibleExerciseCatalog[0].muscles[0], false);
   assert.equal(payload.eligibleExerciseCatalog[0].equipment, 'suspension_trainer');
+  assert.deepEqual(payload.equipmentPlan, {
+    targetExerciseEntries: 6,
+    exerciseEntryTolerance: 1,
+    countIncludesWarmup: true,
+    maximumEquipmentCountDifference: 2,
+    balancedTargetCounts: { suspension_trainer: 3, dumbbell: 3 },
+  });
   assert.match(prompts.systemPrompt, /Core is not a mandatory phase/);
   assert.match(prompts.systemPrompt, /never add a bench, chair, box, rack/);
-  assert.match(prompts.systemPrompt, /difference of only one/);
+  assert.match(prompts.systemPrompt, /between 5 and 7 entries is acceptable/);
+  assert.match(
+    prompts.systemPrompt,
+    /counts may differ by at most 2/,
+  );
   assert.doesNotMatch(prompts.systemPrompt, /athlete's body and the floor/);
   assert.match(
     prompts.systemPrompt,
@@ -127,6 +175,7 @@ test('retries a plan rejected for consecutive duplicate exercises', async () => 
   );
   const completionInputs: Array<{
     systemPrompt: string;
+    jsonSchema: Record<string, unknown>;
     maxAttempts?: number;
     maxTokens?: number;
   }> = [];
@@ -160,8 +209,20 @@ test('retries a plan rejected for consecutive duplicate exercises', async () => 
             type: 'straight_sets',
             rounds: 1,
             exercises: callCount === 1
-              ? [exercise('exercise-0'), exercise('exercise-1')]
-              : [exercise('exercise-1')],
+              ? [
+                  exercise('exercise-0'),
+                  exercise('exercise-1'),
+                  exercise('exercise-3'),
+                  exercise('exercise-7'),
+                  exercise('exercise-4'),
+                ]
+              : [
+                  exercise('exercise-1'),
+                  exercise('exercise-3'),
+                  exercise('exercise-7'),
+                  exercise('exercise-4'),
+                  exercise('exercise-6'),
+                ],
           }],
         },
       };
@@ -178,6 +239,9 @@ test('retries a plan rejected for consecutive duplicate exercises', async () => 
     completionInputs[1].systemPrompt,
     /IMPORTANT PLAN RETRY[\s\S]*duplicated consecutively/,
   );
+  const schemaText = JSON.stringify(completionInputs[0].jsonSchema);
+  assert.equal((schemaText.match(/"enum":\[/g) ?? []).length, 3);
+  for (const { id } of eligible) assert.match(schemaText, new RegExp(id));
   assert.equal(result.workout.blocks[0].exercises[0].exerciseId, 'exercise-1');
 });
 
@@ -235,4 +299,40 @@ test('deterministic fallback uses dynamic block types and no mandatory core bloc
     hypertrophy.blocks.map(({ type }) => type),
     fitness.blocks.map(({ type }) => type),
   );
+});
+
+test('deterministic fallback remains evenly balanced across three equipment types', async () => {
+  const { generateDeterministicPlan } = await servicePromise;
+  const candidates = [
+    { ...catalog[0], id: 'trx-1', equipment: 'suspension_trainer' },
+    { ...catalog[1], id: 'dumbbell-1', equipment: 'dumbbell' },
+    { ...catalog[2], id: 'bodyweight-1', equipment: 'bodyweight' },
+    { ...catalog[3], id: 'trx-2', equipment: 'suspension_trainer' },
+    { ...catalog[4], id: 'dumbbell-2', equipment: 'dumbbell' },
+    { ...catalog[5], id: 'bodyweight-2', equipment: 'bodyweight' },
+  ];
+  const workout = generateDeterministicPlan(
+    {
+      ...input,
+      equipment: ['suspension_trainer', 'dumbbell', 'bodyweight'],
+    },
+    candidates,
+  );
+  const equipmentById = new Map(
+    candidates.map(({ id, equipment }) => [id, equipment]),
+  );
+  const counts = [
+    ...workout.warmup.exercises,
+    ...workout.blocks.flatMap(({ exercises }) => exercises),
+  ].reduce((result, { exerciseId }) => {
+    const equipment = equipmentById.get(exerciseId)!;
+    result.set(equipment, (result.get(equipment) ?? 0) + 1);
+    return result;
+  }, new Map<string, number>());
+
+  assert.deepEqual(Object.fromEntries(counts), {
+    suspension_trainer: 2,
+    dumbbell: 2,
+    bodyweight: 2,
+  });
 });

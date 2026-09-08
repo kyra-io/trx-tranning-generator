@@ -2,10 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  buildGeneratedWorkoutJsonSchema,
+  GeneratedWorkoutValidationError,
   type GeneratedWorkout,
+  generatedWorkoutJsonSchema,
   generatedWorkoutSchema,
   validateGeneratedWorkoutBusinessRules,
 } from './generated-workout';
+import { buildWorkoutEquipmentPlan } from './workout-equipment';
 
 function exercise(exerciseId: string) {
   return {
@@ -42,6 +46,20 @@ test('accepts dynamic blocks and a mandatory warm-up', () => {
       30,
     ),
   );
+});
+
+test('constrains exercise IDs in both dynamic schema locations', () => {
+  const schema = buildGeneratedWorkoutJsonSchema([
+    'exercise-1',
+    'exercise-2',
+  ]);
+  const schemaText = JSON.stringify(schema);
+
+  assert.equal(
+    (schemaText.match(/"enum":\["exercise-1","exercise-2"\]/g) ?? []).length,
+    2,
+  );
+  assert.doesNotMatch(JSON.stringify(generatedWorkoutJsonSchema), /exercise-1/);
 });
 
 test('rejects unknown exercise IDs but permits a purposeful non-consecutive repeat', () => {
@@ -113,16 +131,18 @@ test('requires every equipment type represented in the candidate pool', () => {
   );
 });
 
-test('requires a balanced distribution between available equipment types', () => {
+test('rejects equipment counts that differ by more than two', () => {
   const equipment = new Map([
     ['exercise-1', 'suspension_trainer'],
     ['exercise-2', 'dumbbell'],
     ['exercise-3', 'suspension_trainer'],
     ['exercise-4', 'suspension_trainer'],
+    ['exercise-5', 'suspension_trainer'],
   ]);
   const workout = createWorkout();
   workout.blocks[0].exercises.push(exercise('exercise-3'));
   workout.blocks[0].exercises.push(exercise('exercise-4'));
+  workout.blocks[0].exercises.push(exercise('exercise-5'));
 
   assert.throws(
     () => validateGeneratedWorkoutBusinessRules(
@@ -131,7 +151,7 @@ test('requires a balanced distribution between available equipment types', () =>
       30,
       equipment,
     ),
-    /equipment distribution must be balanced/,
+    /may differ by at most 2/,
   );
 });
 
@@ -151,6 +171,142 @@ test('accepts a balanced distribution across three equipment types', () => {
       30,
       equipment,
     ),
+  );
+});
+
+test('accepts the exercise-total and equipment-balance tolerances', () => {
+  const equipment = new Map([
+    ['exercise-1', 'suspension_trainer'],
+    ['exercise-2', 'dumbbell'],
+    ['exercise-3', 'suspension_trainer'],
+    ['exercise-4', 'suspension_trainer'],
+  ]);
+  const workout = createWorkout();
+  workout.blocks[0].exercises.push(
+    exercise('exercise-3'),
+    exercise('exercise-4'),
+  );
+  const equipmentPlan = buildWorkoutEquipmentPlan(
+    ['suspension_trainer', 'dumbbell'],
+    4,
+  );
+
+  assert.doesNotThrow(() =>
+    validateGeneratedWorkoutBusinessRules(
+      workout,
+      new Set(equipment.keys()),
+      30,
+      equipment,
+      equipmentPlan,
+    ),
+  );
+});
+
+test('accepts the production cases of nine entries and a five-to-three split', () => {
+  const equipment = new Map([
+    ['trx-1', 'suspension_trainer'],
+    ['trx-2', 'suspension_trainer'],
+    ['trx-3', 'suspension_trainer'],
+    ['trx-4', 'suspension_trainer'],
+    ['trx-5', 'suspension_trainer'],
+    ['dumbbell-1', 'dumbbell'],
+    ['dumbbell-2', 'dumbbell'],
+    ['dumbbell-3', 'dumbbell'],
+    ['dumbbell-4', 'dumbbell'],
+  ]);
+  const equipmentPlan = buildWorkoutEquipmentPlan(
+    ['suspension_trainer', 'dumbbell'],
+    8,
+  );
+  const workout = createWorkout();
+  workout.warmup.exercises = [exercise('trx-1')];
+  workout.blocks[0].exercises = [
+    exercise('dumbbell-1'),
+    exercise('trx-2'),
+    exercise('dumbbell-2'),
+    exercise('trx-3'),
+    exercise('dumbbell-3'),
+    exercise('trx-4'),
+    exercise('dumbbell-4'),
+    exercise('trx-5'),
+  ];
+
+  assert.doesNotThrow(() =>
+    validateGeneratedWorkoutBusinessRules(
+      workout,
+      new Set(equipment.keys()),
+      30,
+      equipment,
+      equipmentPlan,
+    ),
+  );
+
+  workout.blocks[0].exercises.splice(6, 1);
+  assert.doesNotThrow(() =>
+    validateGeneratedWorkoutBusinessRules(
+      workout,
+      new Set(equipment.keys()),
+      30,
+      equipment,
+      equipmentPlan,
+    ),
+  );
+});
+
+test('rejects totals outside tolerance and equipment differences above two', () => {
+  const equipment = new Map([
+    ['exercise-1', 'suspension_trainer'],
+    ['exercise-2', 'dumbbell'],
+    ['exercise-3', 'suspension_trainer'],
+    ['exercise-4', 'suspension_trainer'],
+    ['exercise-5', 'suspension_trainer'],
+    ['exercise-6', 'dumbbell'],
+  ]);
+  const equipmentPlan = buildWorkoutEquipmentPlan(
+    ['suspension_trainer', 'dumbbell'],
+    4,
+  );
+  const excessiveTotal = createWorkout();
+  excessiveTotal.blocks[0].exercises.push(
+    exercise('exercise-3'),
+    exercise('exercise-4'),
+    exercise('exercise-5'),
+    exercise('exercise-6'),
+  );
+
+  assert.throws(
+    () => validateGeneratedWorkoutBusinessRules(
+      excessiveTotal,
+      new Set(equipment.keys()),
+      30,
+      equipment,
+      equipmentPlan,
+    ),
+    (error) =>
+      error instanceof GeneratedWorkoutValidationError &&
+      error.code === 'INVALID_EXERCISE_TOTAL' &&
+      error.details.minimumTotal === 3 &&
+      error.details.maximumTotal === 5,
+  );
+
+  const unbalanced = createWorkout();
+  unbalanced.blocks[0].exercises.push(
+    exercise('exercise-3'),
+    exercise('exercise-4'),
+    exercise('exercise-5'),
+  );
+  assert.throws(
+    () => validateGeneratedWorkoutBusinessRules(
+      unbalanced,
+      new Set(equipment.keys()),
+      30,
+      equipment,
+      equipmentPlan,
+    ),
+    (error) =>
+      error instanceof GeneratedWorkoutValidationError &&
+      error.code === 'INVALID_EQUIPMENT_COUNTS' &&
+      error.details.maximumCountDifference === 2,
   );
 });
 
