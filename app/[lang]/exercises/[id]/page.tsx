@@ -3,30 +3,36 @@ import { notFound } from "next/navigation";
 
 import { ExerciseMediaGallery } from "@/components/exercises/exercise-media-gallery";
 import { MuscleHeatmap } from "@/components/muscles/muscle-heatmap";
+import { getTranslations } from "@/lib/i18n/server";
+import type { Translator } from "@/lib/i18n/translator";
+import {
+  getHomePath,
+  getProfileWorkoutPath,
+} from "@/lib/profiles/profile-routes";
 import {
   getExerciseById,
   type ExerciseDetail,
 } from "@/lib/exercises/exercise.repository";
 import { isUuid } from "@/lib/validation/uuid";
 
-const difficultyLabels: Record<number, string> = {
-  1: "Beginner",
-  2: "Intermediate",
-  3: "Advanced",
-};
-
-const muscleGroups = [
-  { role: "primary", label: "Primary muscles" },
-  { role: "secondary", label: "Secondary" },
-  { role: "stabilizer", label: "Stabilizers" },
-] as const;
-
 function humanize(value: string) {
   const words = value.replaceAll("_", " ").replaceAll("-", " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-function MuscleList({ muscles }: { muscles: ExerciseDetail["muscles"] }) {
+function MuscleList({
+  t,
+  muscles,
+}: {
+  t: Translator;
+  muscles: ExerciseDetail["muscles"];
+}) {
+  const muscleGroups = [
+    { role: "primary", label: t.messages.enums.muscle_role.primary },
+    { role: "secondary", label: t.messages.enums.muscle_role.secondary },
+    { role: "stabilizer", label: t.messages.enums.muscle_role.stabilizer },
+  ] as const;
+
   const groups = muscleGroups
     .map((group) => ({
       ...group,
@@ -71,7 +77,7 @@ export default async function ExerciseDetailPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ lang: string; id: string }>;
   searchParams: Promise<{
     profileId?: string | string[];
     workoutId?: string | string[];
@@ -84,15 +90,27 @@ export default async function ExerciseDetailPage({
     notFound();
   }
 
-  const exercise = await getExerciseById(id);
+  const [exercise, t] = await Promise.all([
+    getExerciseById(id),
+    getTranslations(),
+  ]);
 
   if (!exercise) {
     notFound();
   }
 
+  const m = t.messages;
   const images = exercise.images.filter((image) => image.url.trim());
   const difficulty =
-    difficultyLabels[exercise.difficulty] ?? `Level ${exercise.difficulty}`;
+    exercise.difficulty === 1
+      ? m.enums.level.beginner
+      : exercise.difficulty === 2
+        ? m.enums.level.intermediate
+        : exercise.difficulty === 3
+          ? m.enums.level.advanced
+          : t.format(m.exercise_detail.level_fallback, {
+              level: exercise.difficulty,
+            });
   const heatmapMuscles = exercise.muscles.map((muscle) => ({
     slug: muscle.slug,
     name: muscle.name,
@@ -104,8 +122,8 @@ export default async function ExerciseDetailPage({
     typeof workoutId === "string" &&
     isUuid(profileId) &&
     isUuid(workoutId)
-      ? `/profiles/${profileId}/workouts/${workoutId}`
-      : "/";
+      ? getProfileWorkoutPath(t.language, profileId, workoutId)
+      : getHomePath(t.language);
 
   return (
     <div className="min-w-0">
@@ -128,7 +146,7 @@ export default async function ExerciseDetailPage({
               d="m12.5 4-6 6 6 6"
             />
           </svg>
-          Back
+          {m.common.back}
         </Link>
 
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-900">
@@ -139,10 +157,13 @@ export default async function ExerciseDetailPage({
           <span aria-hidden="true">·</span>
           <span>{difficulty}</span>
           <span aria-hidden="true">·</span>
-          <span>{humanize(exercise.equipment)}</span>
+          <span>
+            {(m.enums.equipment as Record<string, string>)[exercise.equipment] ??
+              humanize(exercise.equipment)}
+          </span>
           {exercise.unilateral ? (
             <span className="rounded-full border border-primary bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary-hover">
-              Unilateral
+              {m.exercise_detail.unilateral}
             </span>
           ) : null}
         </div>
@@ -160,7 +181,7 @@ export default async function ExerciseDetailPage({
           id="instructions-heading"
           className="text-xl font-semibold tracking-tight text-zinc-900"
         >
-          How to perform
+          {m.exercise_detail.how_to_perform}
         </h2>
         {exercise.instructions ? (
           <p className="mt-3 whitespace-pre-line text-sm leading-6 text-zinc-600">
@@ -168,7 +189,7 @@ export default async function ExerciseDetailPage({
           </p>
         ) : (
           <p className="mt-3 text-sm text-zinc-400">
-            Instructions not available
+            {m.exercise_detail.instructions_unavailable}
           </p>
         )}
       </section>
@@ -178,10 +199,14 @@ export default async function ExerciseDetailPage({
           id="muscle-focus-heading"
           className="mb-4 text-xl font-semibold tracking-tight text-zinc-900"
         >
-          Muscle focus
+          {m.common.muscle_focus}
         </h2>
-        <MuscleHeatmap muscles={heatmapMuscles} contextLabel="this exercise" />
-        <MuscleList muscles={exercise.muscles} />
+        <MuscleHeatmap
+          muscles={heatmapMuscles}
+          translator={t}
+          contextLabel={m.muscle_heatmap.this_exercise}
+        />
+        <MuscleList t={t} muscles={exercise.muscles} />
       </section>
 
       {exercise.notes ? (
@@ -190,7 +215,7 @@ export default async function ExerciseDetailPage({
             id="notes-heading"
             className="text-xl font-semibold tracking-tight text-zinc-900"
           >
-            Notes
+            {m.common.notes}
           </h2>
           <p className="mt-3 whitespace-pre-line text-sm leading-6 text-zinc-600">
             {exercise.notes}
@@ -204,7 +229,7 @@ export default async function ExerciseDetailPage({
             id="source-heading"
             className="text-xs font-semibold tracking-wide text-zinc-500 uppercase"
           >
-            Source
+            {m.exercise_detail.source}
           </h2>
           {exercise.sourceUrl ? (
             <a

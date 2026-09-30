@@ -4,50 +4,41 @@ import { notFound } from "next/navigation";
 import { MuscleHeatmap } from "@/components/muscles/muscle-heatmap";
 import { ExerciseThumbnail } from "@/components/workouts/exercise-thumbnail";
 import { WorkoutDetailActions } from "@/components/workouts/workout-detail-actions";
+import { getTranslations } from "@/lib/i18n/server";
+import type { Translator } from "@/lib/i18n/translator";
+import { getProfilePath } from "@/lib/profiles/profile-routes";
 import {
   getWorkoutById,
   type WorkoutDetail,
 } from "@/lib/workouts/workout.repository";
 import { isUuid } from "@/lib/validation/uuid";
 
-const labels: Record<string, string> = {
-  full_body: "Full body",
-  upper_body: "Upper body",
-  lower_body: "Lower body",
-  core: "Core",
-  beginner: "Beginner",
-  intermediate: "Intermediate",
-  advanced: "Advanced",
-  warm_up: "Warm-up",
-  straight_sets: "Straight Sets",
-  superset: "Superset",
-  circuit: "Circuit",
-  interval: "Intervals",
-  emom: "EMOM",
-  amrap: "AMRAP",
-  finisher: "Finisher",
-};
-
 function humanize(value: string) {
-  if (labels[value]) {
-    return labels[value];
-  }
-
   const words = value.replaceAll("_", " ").replaceAll("-", " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
+function enumLabel(
+  dictionary: Record<string, string>,
+  value: string,
+  fallback: (value: string) => string = humanize,
+) {
+  return dictionary[value] ?? fallback(value);
+}
+
 function getPrescription(
+  t: Translator,
   exercise: WorkoutDetail["blocks"][number]["exercises"][number],
 ) {
+  const m = t.messages.common;
   const amount = exercise.durationSeconds
-    ? `${exercise.durationSeconds} sec`
+    ? `${exercise.durationSeconds} ${m.seconds_abbreviation}`
     : exercise.reps
-      ? `${exercise.reps}${exercise.repsPerSide ? " / side" : ""}`
+      ? `${exercise.reps}${exercise.repsPerSide ? ` ${m.per_side}` : ""}`
       : null;
 
   if (!amount) {
-    return exercise.sets ? `${exercise.sets} sets` : null;
+    return exercise.sets ? `${exercise.sets} ${m.sets}` : null;
   }
 
   return exercise.sets ? `${exercise.sets} × ${amount}` : amount;
@@ -67,18 +58,24 @@ function getMainMuscles(
 }
 
 function ExerciseCard({
+  t,
   profileId,
   workoutId,
   workoutExercise,
 }: {
+  t: Translator;
   profileId: string;
   workoutId: string;
   workoutExercise: WorkoutDetail["blocks"][number]["exercises"][number];
 }) {
   const { exercise } = workoutExercise;
   const image = exercise.images.find((candidate) => candidate.url.trim());
-  const prescription = getPrescription(workoutExercise);
+  const prescription = getPrescription(t, workoutExercise);
   const mainMuscles = getMainMuscles(exercise.muscles);
+  const equipment = enumLabel(
+    t.messages.enums.equipment as Record<string, string>,
+    exercise.equipment,
+  );
 
   return (
     <article className="rounded-2xl border border-zinc-200 bg-white p-3.5">
@@ -92,7 +89,7 @@ function ExerciseCard({
           <h3 className="font-semibold leading-5 text-zinc-900">
             <Link
               href={{
-                pathname: `/exercises/${exercise.id}`,
+                pathname: `/${t.language}/exercises/${exercise.id}`,
                 query: { profileId, workoutId },
               }}
               className="-my-2 inline-flex min-h-11 items-center rounded-md py-2 outline-none hover:text-primary-hover focus-visible:ring-2 focus-visible:ring-primary"
@@ -101,8 +98,12 @@ function ExerciseCard({
             </Link>
           </h3>
           <p className="mt-1 text-xs text-zinc-500">
-            {humanize(exercise.primaryPattern || exercise.family || "Exercise")}
-            {` · ${humanize(exercise.equipment)}`}
+            {humanize(
+              exercise.primaryPattern ||
+                exercise.family ||
+                t.messages.common.exercise,
+            )}
+            {` · ${equipment}`}
           </p>
           {prescription ? (
             <p className="mt-3 text-sm font-semibold text-zinc-800">
@@ -111,7 +112,9 @@ function ExerciseCard({
           ) : null}
           {workoutExercise.restSeconds ? (
             <p className="mt-1 text-xs text-zinc-500">
-              Rest {workoutExercise.restSeconds} sec
+              {t.format(t.messages.workout_detail.rest, {
+                seconds: workoutExercise.restSeconds,
+              })}
             </p>
           ) : null}
         </div>
@@ -134,7 +137,9 @@ function ExerciseCard({
 }
 
 export default async function WorkoutDetailPage(
-  props: { params: Promise<{ profileId: string; workoutId: string }> },
+  props: {
+    params: Promise<{ lang: string; profileId: string; workoutId: string }>;
+  },
 ) {
   const { profileId, workoutId } = await props.params;
 
@@ -142,20 +147,32 @@ export default async function WorkoutDetailPage(
     notFound();
   }
 
-  const workout = await getWorkoutById(profileId, workoutId);
+  const [workout, t] = await Promise.all([
+    getWorkoutById(profileId, workoutId),
+    getTranslations(),
+  ]);
 
   if (!workout) {
     notFound();
   }
 
+  const m = t.messages;
   const duration =
     workout.estimatedDurationMinutes ?? workout.requestedDurationMinutes;
+  const level = enumLabel(
+    m.enums.level as Record<string, string>,
+    workout.level,
+  );
+  const focus = enumLabel(
+    m.enums.focus as Record<string, string>,
+    workout.focus,
+  );
 
   return (
     <div>
       <header>
         <Link
-          href={`/profiles/${profileId}`}
+          href={getProfilePath(t.language, profileId)}
           className="-ml-2 inline-flex min-h-11 items-center gap-1 rounded-lg px-2 text-sm font-medium text-zinc-500 outline-none hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-primary"
         >
           <svg
@@ -172,18 +189,16 @@ export default async function WorkoutDetailPage(
               d="m12.5 4-6 6 6 6"
             />
           </svg>
-          Back
+          {m.common.back}
         </Link>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-zinc-900">
           {workout.name}
         </h1>
         <p className="mt-3 text-sm text-zinc-600">
-          {duration} min <span aria-hidden="true">·</span>{" "}
-          {humanize(workout.level)}
+          {duration} {m.common.minutes_abbreviation}{" "}
+          <span aria-hidden="true">·</span> {level}
         </p>
-        <p className="mt-1 text-sm text-zinc-500">
-          {humanize(workout.focus)}
-        </p>
+        <p className="mt-1 text-sm text-zinc-500">{focus}</p>
       </header>
 
       <WorkoutDetailActions
@@ -204,9 +219,13 @@ export default async function WorkoutDetailPage(
             id="muscle-focus-heading"
             className="mb-4 text-xl font-semibold tracking-tight text-zinc-900"
           >
-            Muscle focus
+            {m.common.muscle_focus}
           </h2>
-          <MuscleHeatmap muscles={workout.muscleSummary} />
+          <MuscleHeatmap
+            muscles={workout.muscleSummary}
+            translator={t}
+            contextLabel={m.muscle_heatmap.this_workout}
+          />
         </section>
 
         <div className="mt-9 divide-y divide-zinc-200">
@@ -219,13 +238,16 @@ export default async function WorkoutDetailPage(
                   </h2>
                   {block.type !== "warm_up" ? (
                     <p className="mt-1 text-xs font-medium text-primary-hover">
-                      {humanize(block.type)}
+                      {enumLabel(
+                        m.enums.block_type as Record<string, string>,
+                        block.type,
+                      )}
                     </p>
                   ) : null}
                 </div>
                 {block.rounds > 1 ? (
                   <p className="shrink-0 pt-1 text-sm text-zinc-500">
-                    {block.rounds} rounds
+                    {t.format(m.workout_detail.rounds, { count: block.rounds })}
                   </p>
                 ) : null}
               </div>
@@ -233,6 +255,7 @@ export default async function WorkoutDetailPage(
                 {block.exercises.map((exercise) => (
                   <ExerciseCard
                     key={exercise.id}
+                    t={t}
                     profileId={profileId}
                     workoutId={workout.id}
                     workoutExercise={exercise}

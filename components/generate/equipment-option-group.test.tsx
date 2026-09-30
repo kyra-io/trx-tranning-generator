@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 
 import {
   EquipmentOptionGroup,
-  getEquipmentSelectionError,
+  hasEquipmentSelectionError,
 } from './equipment-option-group';
 
 const options = [
@@ -16,6 +16,7 @@ const options = [
 test('renders three unchecked native equipment checkboxes', () => {
   const markup = renderToStaticMarkup(
     <EquipmentOptionGroup
+      legend="Equipment"
       options={options}
       value={[]}
       onChange={() => undefined}
@@ -33,6 +34,7 @@ test('renders three unchecked native equipment checkboxes', () => {
 test('renders each selected equipment option independently', () => {
   const markup = renderToStaticMarkup(
     <EquipmentOptionGroup
+      legend="Equipment"
       options={options}
       value={['suspension_trainer', 'bodyweight']}
       onChange={() => undefined}
@@ -45,9 +47,6 @@ test('renders each selected equipment option independently', () => {
 });
 
 test('requires at least one equipment selection', () => {
-  assert.equal(
-    getEquipmentSelectionError([]),
-    'Select at least one equipment option.',
-  );
-  assert.equal(getEquipmentSelectionError(['bodyweight']), null);
+  assert.equal(hasEquipmentSelectionError([]), true);
+  assert.equal(hasEquipmentSelectionError(['bodyweight']), false);
 });

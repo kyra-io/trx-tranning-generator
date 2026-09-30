@@ -3,27 +3,18 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import type { TranslationSchema } from "@/lib/i18n/translations/en";
+import { useLocale, useTranslations } from "@/lib/i18n/translations-provider";
+import { getProfilePath } from "@/lib/profiles/profile-routes";
+
+type ErrorKey = keyof TranslationSchema["errors"];
+
 type Difficulty = "too_easy" | "good" | "too_hard";
 
 type Feedback = {
   difficulty: string;
   notes: string | null;
 };
-
-const labels: Record<string, string> = {
-  generated: "Generated",
-  in_progress: "In progress",
-  completed: "Completed",
-  too_easy: "Too easy",
-  good: "Good",
-  too_hard: "Too hard",
-};
-
-const difficultyOptions: Array<{ value: Difficulty; label: string }> = [
-  { value: "too_easy", label: "Too easy" },
-  { value: "good", label: "Good" },
-  { value: "too_hard", label: "Too hard" },
-];
 
 export function WorkoutDetailActions({
   profileId,
@@ -39,6 +30,9 @@ export function WorkoutDetailActions({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const language = useLocale();
+  const t = useTranslations();
+  const m = t.messages;
   const [status, setStatus] = useState(initialStatus);
   const [feedback, setFeedback] = useState(initialFeedback);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
@@ -47,9 +41,15 @@ export function WorkoutDetailActions({
   const [isCompleting, setIsCompleting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [hasJustCompleted, setHasJustCompleted] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<ErrorKey | null>(null);
   const feedbackHeadingRef = useRef<HTMLLegendElement>(null);
   const statusRef = useRef<HTMLDivElement>(null);
+
+  const difficultyOptions: Array<{ value: Difficulty; label: string }> = [
+    { value: "too_easy", label: m.enums.difficulty.too_easy },
+    { value: "good", label: m.enums.difficulty.good },
+    { value: "too_hard", label: m.enums.difficulty.too_hard },
+  ];
 
   useEffect(() => {
     if (isFeedbackOpen) {
@@ -71,11 +71,11 @@ export function WorkoutDetailActions({
     }
 
     if (!difficulty) {
-      setError("Choose how the workout felt.");
+      setErrorKey("difficulty_required");
       return;
     }
 
-    setError(null);
+    setErrorKey(null);
     setIsCompleting(true);
 
     try {
@@ -103,18 +103,18 @@ export function WorkoutDetailActions({
       setHasJustCompleted(true);
       router.refresh();
     } catch {
-      setError("Could not complete workout. Please try again.");
+      setErrorKey("complete_failed");
     } finally {
       setIsCompleting(false);
     }
   }
 
   async function handleDelete() {
-    if (!window.confirm("Delete this workout? This cannot be undone.")) {
+    if (!window.confirm(m.workout_detail.delete_confirm)) {
       return;
     }
 
-    setError(null);
+    setErrorKey(null);
     setIsDeleting(true);
 
     try {
@@ -126,15 +126,17 @@ export function WorkoutDetailActions({
         throw new Error("Could not delete workout");
       }
 
-      router.push(`/profiles/${encodeURIComponent(profileId)}`);
+      router.push(getProfilePath(language, profileId));
       router.refresh();
     } catch {
-      setError("Could not delete workout. Please try again.");
+      setErrorKey("delete_failed");
       setIsDeleting(false);
     }
   }
 
   const isCompleted = status === "completed";
+  const statusLabel = (m.enums.status as Record<string, string>)[status] ?? status.replaceAll("_", " ");
+  const error = errorKey ? m.errors[errorKey] : null;
 
   return (
     <>
@@ -152,7 +154,7 @@ export function WorkoutDetailActions({
               : "bg-primary-soft text-primary-hover"
           }`}
         >
-          {labels[status] ?? status.replaceAll("_", " ")}
+          {statusLabel}
         </span>
       </div>
 
@@ -162,10 +164,11 @@ export function WorkoutDetailActions({
         {isCompleted && feedback ? (
           <div>
             <h2 className="text-sm font-semibold text-zinc-900">
-              Your feedback
+              {m.workout_detail.feedback_heading}
             </h2>
             <p className="mt-2 text-sm font-medium text-zinc-700">
-              {labels[feedback.difficulty] ?? feedback.difficulty}
+              {(m.enums.difficulty as Record<string, string>)[feedback.difficulty] ??
+                feedback.difficulty}
             </p>
             {feedback.notes ? (
               <p className="mt-1 text-sm leading-6 text-zinc-500">
@@ -181,13 +184,13 @@ export function WorkoutDetailActions({
               <button
                 type="button"
                 onClick={() => {
-                  setError(null);
+                  setErrorKey(null);
                   setIsFeedbackOpen(true);
                 }}
                 disabled={isDeleting}
                 className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary-hover px-5 text-sm font-semibold text-white outline-none hover:bg-primary-strong focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
               >
-                Complete workout
+                {m.workout_detail.complete_action}
               </button>
             ) : (
               <form
@@ -200,7 +203,7 @@ export function WorkoutDetailActions({
                     tabIndex={-1}
                     className="font-semibold text-zinc-900 outline-none"
                   >
-                    How was it?
+                    {m.workout_detail.feedback_question}
                   </legend>
                   <div className="mt-4 grid grid-cols-3 gap-2">
                     {difficultyOptions.map((option) => {
@@ -222,7 +225,7 @@ export function WorkoutDetailActions({
                             checked={isSelected}
                             onChange={() => {
                               setDifficulty(option.value);
-                              setError(null);
+                              setErrorKey(null);
                             }}
                             disabled={isCompleting || isDeleting}
                             className="sr-only"
@@ -240,7 +243,10 @@ export function WorkoutDetailActions({
                   htmlFor="workout-feedback-notes"
                   className="mt-5 block text-sm font-medium text-zinc-700"
                 >
-                  Notes <span className="font-normal text-zinc-400">(optional)</span>
+                  {m.workout_detail.notes_label}{" "}
+                  <span className="font-normal text-zinc-400">
+                    {m.common.optional}
+                  </span>
                 </label>
                 <textarea
                   id="workout-feedback-notes"
@@ -249,7 +255,7 @@ export function WorkoutDetailActions({
                   maxLength={1000}
                   rows={3}
                   disabled={isCompleting || isDeleting}
-                  placeholder="How did the workout feel?"
+                  placeholder={m.workout_detail.feedback_placeholder}
                   className="mt-2 w-full resize-none rounded-xl border border-zinc-200 bg-white px-3 py-3 text-base text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-primary focus:ring-1 focus:ring-primary"
                 />
 
@@ -257,20 +263,20 @@ export function WorkoutDetailActions({
                   <button
                     type="button"
                     onClick={() => {
-                      setError(null);
+                      setErrorKey(null);
                       setIsFeedbackOpen(false);
                     }}
                     disabled={isCompleting || isDeleting}
                     className="min-h-11 flex-1 rounded-xl border border-zinc-200 px-4 text-sm font-semibold text-zinc-700 outline-none hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:opacity-60"
                   >
-                    Cancel
+                    {m.common.cancel}
                   </button>
                   <button
                     type="submit"
                     disabled={isCompleting || isDeleting}
                     className="min-h-11 flex-1 rounded-xl bg-primary-hover px-4 text-sm font-semibold text-white outline-none hover:bg-primary-strong focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
                   >
-                    {isCompleting ? "Completing..." : "Complete"}
+                    {isCompleting ? m.workout_detail.completing : m.common.complete}
                   </button>
                 </div>
               </form>
@@ -290,7 +296,7 @@ export function WorkoutDetailActions({
           disabled={isDeleting || isCompleting}
           className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl px-5 text-sm font-medium text-zinc-500 outline-none hover:bg-zinc-100 hover:text-red-700 focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
         >
-          {isDeleting ? "Deleting..." : "Delete workout"}
+          {isDeleting ? m.workout_detail.deleting : m.workout_detail.delete_action}
         </button>
       </section>
     </>

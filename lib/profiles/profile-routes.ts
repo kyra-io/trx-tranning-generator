@@ -1,11 +1,28 @@
-export function getProfilePath(profileId: string) {
-  return `/profiles/${encodeURIComponent(profileId)}`;
+import type { Language } from "@/lib/i18n/locales";
+
+export function getHomePath(language: Language) {
+  return `/${language}`;
 }
 
-export function getProfileWorkoutCreationPath(profileId: string) {
-  return `${getProfilePath(profileId)}/workouts/new`;
+export function getNewProfilePath(language: Language) {
+  return `/${language}/profiles/new`;
 }
 
-export function getProfileWorkoutPath(profileId: string, workoutId: string) {
-  return `${getProfilePath(profileId)}/workouts/${encodeURIComponent(workoutId)}`;
+export function getProfilePath(language: Language, profileId: string) {
+  return `${getHomePath(language)}/profiles/${encodeURIComponent(profileId)}`;
+}
+
+export function getProfileWorkoutCreationPath(
+  language: Language,
+  profileId: string,
+) {
+  return `${getProfilePath(language, profileId)}/workouts/new`;
+}
+
+export function getProfileWorkoutPath(
+  language: Language,
+  profileId: string,
+  workoutId: string,
+) {
+  return `${getProfilePath(language, profileId)}/workouts/${encodeURIComponent(workoutId)}`;
 }

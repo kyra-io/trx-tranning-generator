@@ -5,7 +5,7 @@ import {
   clampMuscleScore,
   getMuscleHeatmapColor,
   getMuscleIntensity,
-  getMuscleIntensityLabel,
+  getMuscleIntensityLevel,
   getTopMuscles,
 } from "./muscle-heatmap.utils";
 
@@ -32,9 +32,9 @@ test("maps activation to the dedicated red heatmap scale", () => {
 });
 
 test("uses stable textual intensity bands", () => {
-  assert.equal(getMuscleIntensityLabel(0.2), "Low");
-  assert.equal(getMuscleIntensityLabel(0.5), "Medium");
-  assert.equal(getMuscleIntensityLabel(0.9), "High");
+  assert.equal(getMuscleIntensityLevel(0.2), "low");
+  assert.equal(getMuscleIntensityLevel(0.5), "medium");
+  assert.equal(getMuscleIntensityLevel(0.9), "high");
 });
 
 test("selects at most five top muscles without mutating the input", () => {

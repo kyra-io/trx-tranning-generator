@@ -7,26 +7,10 @@ import {
   WorkoutCard,
   type WorkoutSummary,
 } from "@/components/workouts/workout-card";
+import { useLocale, useTranslations } from "@/lib/i18n/translations-provider";
+import { getProfileWorkoutCreationPath } from "@/lib/profiles/profile-routes";
 
 type WorkoutFilter = "generated" | "completed" | "all";
-
-const emptyStateCopy: Record<
-  WorkoutFilter,
-  { title: string; description: string }
-> = {
-  generated: {
-    title: "No generated workouts",
-    description: "Generate a new workout to see it here.",
-  },
-  completed: {
-    title: "No completed workouts",
-    description: "Workouts you complete will appear here.",
-  },
-  all: {
-    title: "No workouts yet",
-    description: "Generate your first workout to see it here.",
-  },
-};
 
 export function WorkoutList({
   profileId,
@@ -35,7 +19,28 @@ export function WorkoutList({
   profileId: string;
   workouts: WorkoutSummary[];
 }) {
+  const t = useTranslations();
+  const language = useLocale();
+  const m = t.messages;
   const [filter, setFilter] = useState<WorkoutFilter>("generated");
+
+  const emptyStateCopy: Record<
+    WorkoutFilter,
+    { title: string; description: string }
+  > = {
+    generated: {
+      title: m.workout_list.empty_generated_title,
+      description: m.workout_list.empty_generated_description,
+    },
+    completed: {
+      title: m.workout_list.empty_completed_title,
+      description: m.workout_list.empty_completed_description,
+    },
+    all: {
+      title: m.workout_list.empty_all_title,
+      description: m.workout_list.empty_all_description,
+    },
+  };
 
   const filterControl = (
     <div className="mb-4">
@@ -43,7 +48,7 @@ export function WorkoutList({
         htmlFor="workout-filter"
         className="mb-1.5 block text-sm font-medium text-zinc-700"
       >
-        Show workouts
+        {m.workout_list.filter_label}
       </label>
       <select
         id="workout-filter"
@@ -53,9 +58,9 @@ export function WorkoutList({
         }}
         className="min-h-11 w-full rounded-xl border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-900 outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
       >
-        <option value="generated">Generated</option>
-        <option value="completed">Completed</option>
-        <option value="all">All workouts</option>
+        <option value="generated">{m.enums.status.generated}</option>
+        <option value="completed">{m.enums.status.completed}</option>
+        <option value="all">{m.workout_list.filter_all}</option>
       </select>
     </div>
   );
@@ -102,10 +107,10 @@ export function WorkoutList({
             {emptyState.description}
           </p>
           <Link
-            href={`/profiles/${encodeURIComponent(profileId)}/workouts/new`}
+            href={getProfileWorkoutCreationPath(language, profileId)}
             className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary-hover px-5 text-sm font-semibold text-white outline-none hover:bg-primary-strong focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
-            Create workout
+            {m.common.create_workout}
           </Link>
         </div>
       </>

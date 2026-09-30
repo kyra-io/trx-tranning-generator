@@ -5,18 +5,20 @@ type EquipmentOption = {
   value: WorkoutEquipment;
 };
 
-export function getEquipmentSelectionError(
+export function hasEquipmentSelectionError(
   equipment: readonly WorkoutEquipment[],
 ) {
-  return equipment.length === 0 ? 'Select at least one equipment option.' : null;
+  return equipment.length === 0;
 }
 
 export function EquipmentOptionGroup({
+  legend,
   options,
   value,
   onChange,
   errorId,
 }: {
+  legend: string;
   options: readonly EquipmentOption[];
   value: readonly WorkoutEquipment[];
   onChange: (value: WorkoutEquipment[]) => void;
@@ -30,7 +32,7 @@ export function EquipmentOptionGroup({
       aria-invalid={errorId ? true : undefined}
     >
       <legend className="mb-3 text-sm font-semibold text-zinc-900">
-        Equipment
+        {legend}
       </legend>
       <div className="grid grid-cols-3 gap-2">
         {options.map((option) => {
