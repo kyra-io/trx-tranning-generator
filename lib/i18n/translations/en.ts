@@ -28,6 +28,9 @@ export const en = {
     create_profile: "Create profile",
     primary_label: "Primary navigation",
   },
+  language_toggle: {
+    aria_label: "Switch language",
+  },
   home: {
     heading: "Choose profile",
     subheading: "Open your personal workout history",

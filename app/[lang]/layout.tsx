@@ -3,6 +3,7 @@ import { Geist } from "next/font/google";
 import { notFound } from "next/navigation";
 
 import { BottomNavigation } from "@/components/navigation/bottom-navigation";
+import { LanguageToggle } from "@/components/navigation/language-toggle";
 import {
   isLanguage,
   LANGUAGE_TAGS,
@@ -55,10 +56,11 @@ export default async function RootLayout({
       <body className="min-h-full bg-zinc-200 font-sans text-zinc-900">
         <TranslationsProvider language={lang} messages={dictionaries[lang]}>
           <div className="mx-auto flex min-h-dvh w-full max-w-[480px] flex-col bg-zinc-50">
-            <header className="px-5 pt-[calc(1rem+env(safe-area-inset-top))] pb-3">
+            <header className="flex items-center justify-between gap-4 px-5 pt-[calc(1rem+env(safe-area-inset-top))] pb-3">
               <span className="text-sm font-bold tracking-[0.18em] text-zinc-900">
                 TRX
               </span>
+              <LanguageToggle />
             </header>
             <main className="flex-1 px-5 pt-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
               {children}

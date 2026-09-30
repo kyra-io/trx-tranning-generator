@@ -30,6 +30,9 @@ export const ptPt = {
     create_profile: "Criar perfil",
     primary_label: "Navegação principal",
   },
+  language_toggle: {
+    aria_label: "Mudar de idioma",
+  },
   home: {
     heading: "Escolher perfil",
     subheading: "Abre o teu histórico pessoal de treinos",
