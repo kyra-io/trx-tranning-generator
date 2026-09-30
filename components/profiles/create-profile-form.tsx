@@ -3,14 +3,31 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
+import { useLocale, useTranslations } from "@/lib/i18n/translations-provider";
+import type { TranslationSchema } from "@/lib/i18n/translations/en";
 import { getProfileWorkoutCreationPath } from "@/lib/profiles/profile-routes";
+
+type ErrorKey = keyof TranslationSchema["errors"];
+
+const serverValidationErrorKeys: Record<string, ErrorKey> = {
+  "Profile name is required": "profile_name_invalid",
+  "Profile name must be at most 100 characters": "profile_name_invalid",
+  "Expected a string": "profile_name_invalid",
+  "Expected a JSON object": "profile_name_invalid",
+};
 
 export function CreateProfileForm() {
   const router = useRouter();
+  const language = useLocale();
+  const t = useTranslations();
   const submissionInFlight = useRef(false);
   const [name, setName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function messageForErrorKey(key: ErrorKey) {
+    return t.messages.errors[key];
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,14 +52,18 @@ export function CreateProfileForm() {
 
       if (!response.ok) {
         if (response.status === 409) {
-          setError("A profile with this name already exists.");
+          setError(messageForErrorKey("profile_name_conflict"));
         } else if (response.status === 400) {
           const message = result?.details?.find(
             (detail) => typeof detail.message === "string",
           )?.message;
-          setError(typeof message === "string" ? message : "Enter a valid profile name.");
+          const errorKey =
+            typeof message === "string"
+              ? serverValidationErrorKeys[message] ?? "profile_name_invalid"
+              : "profile_name_invalid";
+          setError(messageForErrorKey(errorKey));
         } else {
-          setError("Could not create profile. Please try again.");
+          setError(messageForErrorKey("profile_create_failed"));
         }
         return;
       }
@@ -51,10 +72,10 @@ export function CreateProfileForm() {
         throw new Error("Profile response is missing an id");
       }
 
-      router.push(getProfileWorkoutCreationPath(result.id));
+      router.push(getProfileWorkoutCreationPath(language, result.id));
       isNavigating = true;
     } catch {
-      setError("Could not create profile. Please try again.");
+      setError(messageForErrorKey("profile_create_failed"));
     } finally {
       if (!isNavigating) {
         submissionInFlight.current = false;
@@ -87,11 +108,13 @@ export function CreateProfileFormView({
   onNameChange: (name: string) => void;
   onSubmit: React.FormEventHandler<HTMLFormElement>;
 }) {
+  const t = useTranslations();
+
   return (
     <form onSubmit={onSubmit} aria-busy={isCreating} className="space-y-6">
       <div>
         <label htmlFor="profile-name" className="mb-2 block text-sm font-semibold text-zinc-900">
-          Profile name
+          {t.messages.profile_form.name_label}
         </label>
         <input
           id="profile-name"
@@ -105,7 +128,7 @@ export function CreateProfileFormView({
           disabled={isCreating}
           aria-describedby={error ? "profile-error" : undefined}
           className="min-h-12 w-full rounded-xl border border-zinc-200 bg-white px-3 text-base text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-60"
-          placeholder="e.g. Pedro"
+          placeholder={t.messages.profile_form.name_placeholder}
         />
       </div>
       {error ? (
@@ -118,7 +141,9 @@ export function CreateProfileFormView({
         disabled={isCreating}
         className="min-h-12 w-full rounded-xl bg-primary-hover px-5 text-base font-semibold text-white outline-none hover:bg-primary-strong focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
       >
-        {isCreating ? "Creating..." : "Create profile"}
+        {isCreating
+          ? t.messages.profile_form.submitting
+          : t.messages.common.create_profile}
       </button>
     </form>
   );

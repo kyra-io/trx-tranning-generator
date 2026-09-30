@@ -1,7 +1,11 @@
+import { DEFAULT_LANGUAGE } from "@/lib/i18n/locales";
+import { Translator } from "@/lib/i18n/translator";
+import { en } from "@/lib/i18n/translations/en";
+
 import {
   clampMuscleScore,
   getMuscleHeatmapColor,
-  getMuscleIntensityLabel,
+  getMuscleIntensityLevel,
   getTopMuscles,
   type MuscleHeatmapItem,
 } from "./muscle-heatmap.utils";
@@ -16,7 +20,10 @@ type MuscleRegion = {
 export type MuscleHeatmapProps = {
   muscles: MuscleHeatmapItem[];
   contextLabel?: string;
+  translator?: Translator;
 };
+
+const defaultTranslator = new Translator(DEFAULT_LANGUAGE, en);
 
 export const muscleRegions: Record<string, MuscleRegion> = {
   chest: {
@@ -137,19 +144,26 @@ function BodyFigure({
   view,
   scoresByRegion,
   contextLabel,
+  t,
 }: {
   view: BodyView;
   scoresByRegion: Map<string, number>;
   contextLabel: string;
+  t: Translator;
 }) {
+  const viewLabel = t.messages.muscle_heatmap[view];
+
   return (
     <div className="min-w-0 flex-1">
       <p className="mb-2 text-center text-[0.6875rem] font-semibold tracking-[0.16em] text-zinc-500 uppercase">
-        {view}
+        {viewLabel}
       </p>
       <svg
         role="img"
-        aria-label={`${view === "front" ? "Front" : "Back"} muscle activation heatmap for ${contextLabel}`}
+        aria-label={t.format(t.messages.muscle_heatmap.aria_label, {
+          view: viewLabel,
+          context: contextLabel,
+        })}
         viewBox="0 0 140 286"
         className="mx-auto block h-auto w-full max-w-36"
       >
@@ -180,12 +194,17 @@ function BodyFigure({
 
 export function MuscleHeatmap({
   muscles,
-  contextLabel = "this workout",
+  contextLabel,
+  translator = defaultTranslator,
 }: MuscleHeatmapProps) {
+  const t = translator;
+  const resolvedContextLabel =
+    contextLabel ?? t.messages.muscle_heatmap.this_workout;
+
   if (muscles.length === 0) {
     return (
       <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-6 text-center">
-        <p className="text-sm text-zinc-500">No muscle data available</p>
+        <p className="text-sm text-zinc-500">{t.messages.muscle_heatmap.empty}</p>
       </div>
     );
   }
@@ -212,12 +231,14 @@ export function MuscleHeatmap({
         <BodyFigure
           view="front"
           scoresByRegion={scoresByRegion}
-          contextLabel={contextLabel}
+          contextLabel={resolvedContextLabel}
+          t={t}
         />
         <BodyFigure
           view="back"
           scoresByRegion={scoresByRegion}
-          contextLabel={contextLabel}
+          contextLabel={resolvedContextLabel}
+          t={t}
         />
       </div>
 
@@ -225,6 +246,9 @@ export function MuscleHeatmap({
         {topMuscles.map((muscle) => {
           const score = clampMuscleScore(muscle.score);
           const percentage = Math.round(score * 100);
+          const intensity = t.messages.enums.muscle_intensity[
+            getMuscleIntensityLevel(score)
+          ];
 
           return (
             <li
@@ -236,12 +260,14 @@ export function MuscleHeatmap({
                   {muscle.name}
                 </span>
                 <span className="shrink-0 text-xs font-medium text-zinc-500">
-                  {getMuscleIntensityLabel(score)}
+                  {intensity}
                 </span>
               </div>
               <div
                 role="progressbar"
-                aria-label={`${muscle.name} activation`}
+                aria-label={t.format(t.messages.muscle_heatmap.activation_aria, {
+                  name: muscle.name,
+                })}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={percentage}

@@ -3,27 +3,45 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const PROFILE_PATH_PATTERN = /^\/profiles\/([^/]+)(?:\/|$)/;
+import {
+  getHomePath,
+  getNewProfilePath,
+  getProfilePath,
+} from "@/lib/profiles/profile-routes";
+import { useLocale, useTranslations } from "@/lib/i18n/translations-provider";
+
+const PROFILE_PATH_PATTERN = /^\/[^/]+\/profiles\/([^/]+)(?:\/|$)/;
 
 export function BottomNavigation() {
   const pathname = usePathname();
+  const language = useLocale();
+  const t = useTranslations();
+  const homePath = getHomePath(language);
   const profileMatch = pathname.match(PROFILE_PATH_PATTERN);
   const profileId = profileMatch?.[1];
-  const profilePath = profileId ? `/profiles/${profileId}` : null;
+  const profilePath = profileId ? getProfilePath(language, profileId) : null;
   const navigationItems = profilePath
     ? [
-        { href: "/", label: "Profiles", icon: HomeIcon },
-        { href: profilePath, label: "Profile", icon: ListIcon },
-        { href: `${profilePath}/workouts/new`, label: "Create", icon: SparkIcon },
+        { href: homePath, label: t.messages.navigation.profiles, icon: HomeIcon },
+        { href: profilePath, label: t.messages.navigation.profile, icon: ListIcon },
+        {
+          href: `${profilePath}/workouts/new`,
+          label: t.messages.navigation.create,
+          icon: SparkIcon,
+        },
       ]
     : [
-        { href: "/", label: "Profiles", icon: ListIcon },
-        { href: "/profiles/new", label: "Create profile", icon: SparkIcon },
+        { href: homePath, label: t.messages.navigation.profiles, icon: ListIcon },
+        {
+          href: getNewProfilePath(language),
+          label: t.messages.navigation.create_profile,
+          icon: SparkIcon,
+        },
       ];
 
   return (
     <nav
-      aria-label="Primary navigation"
+      aria-label={t.messages.navigation.primary_label}
       className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[480px] border-t border-zinc-200 bg-white px-3 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
     >
       <div
@@ -32,8 +50,8 @@ export function BottomNavigation() {
         }`}
       >
         {navigationItems.map((item) => {
-          const isActive = item.href === "/"
-            ? pathname === "/"
+          const isActive = item.href === homePath
+            ? pathname === homePath
             : pathname === item.href;
           const Icon = item.icon;
 

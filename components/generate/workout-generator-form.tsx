@@ -5,9 +5,12 @@ import { useRef, useState } from "react";
 
 import {
   EquipmentOptionGroup,
-  getEquipmentSelectionError,
+  hasEquipmentSelectionError,
 } from "@/components/generate/equipment-option-group";
 import { OptionGroup } from "@/components/generate/option-group";
+import type { TranslationSchema } from "@/lib/i18n/translations/en";
+import { useLocale, useTranslations } from "@/lib/i18n/translations-provider";
+import { getProfileWorkoutPath } from "@/lib/profiles/profile-routes";
 import type {
   GenerateWorkoutInput,
   WorkoutFocus,
@@ -15,45 +18,19 @@ import type {
   WorkoutLevel,
 } from "@/lib/workouts/workout-generator.service";
 import type { WorkoutEquipment } from "@/lib/workouts/workout-equipment";
-import { getProfileWorkoutPath } from "@/lib/profiles/profile-routes";
 
-const goals = [
-  { label: "Strength", value: "strength" },
-  { label: "Hypertrophy", value: "hypertrophy" },
-  { label: "General fitness", value: "general_fitness" },
-] as const;
+type ErrorKey = keyof TranslationSchema["errors"];
 
-const durations = [15, 30, 45, 60].map((duration) => ({
-  label: duration === 60 ? "60 min" : String(duration),
-  value: String(duration),
-}));
-
-const levels = [
-  { label: "Beginner", value: "beginner" },
-  { label: "Intermediate", value: "intermediate" },
-  { label: "Advanced", value: "advanced" },
-] as const;
-
-const focuses = [
-  { label: "Full body", value: "full_body" },
-  { label: "Upper body", value: "upper_body" },
-  { label: "Lower body", value: "lower_body" },
-  { label: "Core", value: "core" },
-] as const;
-
-const equipmentOptions = [
-  { label: "TRX", value: "suspension_trainer" },
-  { label: "Dumbbells", value: "dumbbell" },
-  { label: "No equipment", value: "bodyweight" },
-] as const;
-
-const safeGenerationErrors = new Set([
-  "No exercises available",
-  "No compatible exercises available",
-]);
+const generationErrorKeys: Partial<Record<string, ErrorKey>> = {
+  "No exercises available": "no_exercises",
+  "No compatible exercises available": "no_compatible_exercises",
+};
 
 export function WorkoutGeneratorForm({ profileId }: { profileId: string }) {
   const router = useRouter();
+  const language = useLocale();
+  const t = useTranslations();
+  const m = t.messages;
   const submissionInFlight = useRef(false);
   const [goal, setGoal] = useState<WorkoutGoal>("strength");
   const [duration, setDuration] = useState("30");
@@ -62,14 +39,48 @@ export function WorkoutGeneratorForm({ profileId }: { profileId: string }) {
   const [intensity, setIntensity] = useState(6);
   const [equipment, setEquipment] = useState<WorkoutEquipment[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<ErrorKey | null>(null);
+
+  const goals = [
+    { label: m.enums.goal.strength, value: "strength" },
+    { label: m.enums.goal.hypertrophy, value: "hypertrophy" },
+    { label: m.enums.goal.general_fitness, value: "general_fitness" },
+  ] as const;
+
+  const durations = [15, 30, 45, 60].map((value) => ({
+    label:
+      value === 60
+        ? `60 ${m.common.minutes_abbreviation}`
+        : String(value),
+    value: String(value),
+  }));
+
+  const levels = [
+    { label: m.enums.level.beginner, value: "beginner" },
+    { label: m.enums.level.intermediate, value: "intermediate" },
+    { label: m.enums.level.advanced, value: "advanced" },
+  ] as const;
+
+  const focuses = [
+    { label: m.enums.focus.full_body, value: "full_body" },
+    { label: m.enums.focus.upper_body, value: "upper_body" },
+    { label: m.enums.focus.lower_body, value: "lower_body" },
+    { label: m.enums.focus.core, value: "core" },
+  ] as const;
+
+  const equipmentOptions = [
+    { label: m.enums.equipment.suspension_trainer, value: "suspension_trainer" },
+    { label: m.enums.equipment.dumbbell, value: "dumbbell" },
+    { label: m.enums.equipment.bodyweight, value: "bodyweight" },
+  ] as const;
+
+  const error = errorKey ? m.errors[errorKey] : null;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const equipmentError = getEquipmentSelectionError(equipment);
-    if (equipmentError) {
-      setError(equipmentError);
+    if (hasEquipmentSelectionError(equipment)) {
+      setErrorKey("equipment_required");
       return;
     }
 
@@ -79,7 +90,7 @@ export function WorkoutGeneratorForm({ profileId }: { profileId: string }) {
 
     submissionInFlight.current = true;
     setIsGenerating(true);
-    setError(null);
+    setErrorKey(null);
 
     const input: GenerateWorkoutInput = {
       goal,
@@ -107,15 +118,15 @@ export function WorkoutGeneratorForm({ profileId }: { profileId: string }) {
 
       if (!response.ok) {
         if (response.status === 400) {
-          setError("Please check your workout preferences.");
+          setErrorKey("invalid_preferences");
         } else if (
           response.status === 422 &&
           typeof result?.error === "string" &&
-          safeGenerationErrors.has(result.error)
+          generationErrorKeys[result.error]
         ) {
-          setError(result.error);
+          setErrorKey(generationErrorKeys[result.error] ?? "generate_failed");
         } else {
-          setError("Could not generate workout. Please try again.");
+          setErrorKey("generate_failed");
         }
 
         return;
@@ -125,10 +136,10 @@ export function WorkoutGeneratorForm({ profileId }: { profileId: string }) {
         throw new Error("Generated workout response is missing an id");
       }
 
-      router.push(getProfileWorkoutPath(profileId, result.id));
+      router.push(getProfileWorkoutPath(language, profileId, result.id));
       isNavigating = true;
     } catch {
-      setError("Could not generate workout. Please try again.");
+      setErrorKey("generate_failed");
     } finally {
       if (!isNavigating) {
         submissionInFlight.current = false;
@@ -145,7 +156,7 @@ export function WorkoutGeneratorForm({ profileId }: { profileId: string }) {
     >
       <OptionGroup
         name="workout-goal"
-        label="Goal"
+        label={m.workout_generator.goal_label}
         options={goals}
         value={goal}
         onChange={(value) => setGoal(value as WorkoutGoal)}
@@ -153,7 +164,7 @@ export function WorkoutGeneratorForm({ profileId }: { profileId: string }) {
       />
       <OptionGroup
         name="workout-duration"
-        label="Duration"
+        label={m.workout_generator.duration_label}
         options={durations}
         value={duration}
         onChange={setDuration}
@@ -161,7 +172,7 @@ export function WorkoutGeneratorForm({ profileId }: { profileId: string }) {
       />
       <OptionGroup
         name="workout-level"
-        label="Level"
+        label={m.workout_generator.level_label}
         options={levels}
         value={level}
         onChange={(value) => setLevel(value as WorkoutLevel)}
@@ -169,29 +180,23 @@ export function WorkoutGeneratorForm({ profileId }: { profileId: string }) {
       />
       <OptionGroup
         name="workout-focus"
-        label="Focus"
+        label={m.workout_generator.focus_label}
         options={focuses}
         value={focus}
         onChange={(value) => setFocus(value as WorkoutFocus)}
         columns={2}
       />
       <EquipmentOptionGroup
+        legend={m.workout_generator.equipment_label}
         options={equipmentOptions}
         value={equipment}
         onChange={(value) => {
           setEquipment(value);
-          if (
-            value.length > 0 &&
-            error === "Select at least one equipment option."
-          ) {
-            setError(null);
+          if (value.length > 0 && errorKey === "equipment_required") {
+            setErrorKey(null);
           }
         }}
-        errorId={
-          error === "Select at least one equipment option."
-            ? "generation-error"
-            : undefined
-        }
+        errorId={errorKey === "equipment_required" ? "generation-error" : undefined}
       />
 
       <div>
@@ -200,7 +205,7 @@ export function WorkoutGeneratorForm({ profileId }: { profileId: string }) {
             htmlFor="intensity"
             className="text-sm font-semibold text-zinc-900"
           >
-            Intensity
+            {m.workout_generator.intensity_label}
           </label>
           <output
             htmlFor="intensity"
@@ -244,7 +249,9 @@ export function WorkoutGeneratorForm({ profileId }: { profileId: string }) {
         aria-describedby={error ? "generation-error" : undefined}
         className="min-h-13 w-full rounded-xl bg-primary-hover px-5 py-3.5 text-base font-semibold text-white outline-none transition-colors hover:bg-primary-strong focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:bg-primary-strong disabled:cursor-wait disabled:opacity-60"
       >
-        {isGenerating ? "Generating..." : "Generate workout"}
+        {isGenerating
+          ? m.workout_generator.generating
+          : m.workout_generator.generate}
       </button>
     </form>
   );

@@ -10,7 +10,7 @@ test('renders a useful profile empty state', () => {
   );
 
   assert.match(markup, /No profiles yet/);
-  assert.match(markup, /href="\/profiles\/new"/);
+  assert.match(markup, /href="\/en\/profiles\/new"/);
   assert.doesNotMatch(markup, /<select/);
 });
 

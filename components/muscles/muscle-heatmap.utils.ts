@@ -28,18 +28,20 @@ export function getMuscleHeatmapColor(score: number) {
   return `var(--heatmap-${level})`;
 }
 
-export function getMuscleIntensityLabel(score: number) {
+export type MuscleIntensityLevel = "high" | "medium" | "low";
+
+export function getMuscleIntensityLevel(score: number): MuscleIntensityLevel {
   const normalizedScore = clampMuscleScore(score);
 
   if (normalizedScore >= 0.67) {
-    return "High";
+    return "high";
   }
 
   if (normalizedScore >= 0.34) {
-    return "Medium";
+    return "medium";
   }
 
-  return "Low";
+  return "low";
 }
 
 export function getTopMuscles(muscles: MuscleHeatmapItem[], limit = 5) {
