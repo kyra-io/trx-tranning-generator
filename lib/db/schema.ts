@@ -33,6 +33,8 @@ export const exercises = pgTable('exercises', {
 
   unilateral: boolean('unilateral').notNull().default(false),
 
+  isWarmup: boolean('is_warmup').notNull().default(false),
+
   instructions: text('instructions'),
   notes: text('notes'),
 

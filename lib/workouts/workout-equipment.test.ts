@@ -7,7 +7,7 @@ test('builds stable quotas for one, two, and three equipment types', () => {
   assert.deepEqual(buildWorkoutEquipmentPlan(['bodyweight'], 6), {
     targetExerciseEntries: 6,
     exerciseEntryTolerance: 1,
-    countIncludesWarmup: true,
+    countIncludesWarmup: false,
     maximumEquipmentCountDifference: 2,
     balancedTargetCounts: { bodyweight: 6 },
   });
@@ -16,7 +16,7 @@ test('builds stable quotas for one, two, and three equipment types', () => {
     {
       targetExerciseEntries: 6,
       exerciseEntryTolerance: 1,
-      countIncludesWarmup: true,
+      countIncludesWarmup: false,
       maximumEquipmentCountDifference: 2,
       balancedTargetCounts: { suspension_trainer: 3, dumbbell: 3 },
     },
@@ -29,7 +29,7 @@ test('builds stable quotas for one, two, and three equipment types', () => {
     {
       targetExerciseEntries: 8,
       exerciseEntryTolerance: 1,
-      countIncludesWarmup: true,
+      countIncludesWarmup: false,
       maximumEquipmentCountDifference: 2,
       balancedTargetCounts: {
         suspension_trainer: 3,

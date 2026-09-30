@@ -27,7 +27,10 @@ function createWorkout(exerciseId = 'exercise-2'): GeneratedWorkout {
   return {
     name: 'Full Body Strength',
     estimatedDurationMinutes: 30,
-    warmup: { exercises: [{ ...exercise('exercise-1'), sets: 1 }] },
+    warmup: {
+      rounds: 2,
+      exercises: [{ ...exercise('exercise-1'), sets: 1 }],
+    },
     blocks: [{
       name: 'Strength Pair',
       type: 'superset',
@@ -143,6 +146,7 @@ test('rejects equipment counts that differ by more than two', () => {
   workout.blocks[0].exercises.push(exercise('exercise-3'));
   workout.blocks[0].exercises.push(exercise('exercise-4'));
   workout.blocks[0].exercises.push(exercise('exercise-5'));
+  workout.blocks[0].exercises.push(exercise('exercise-1'));
 
   assert.throws(
     () => validateGeneratedWorkoutBusinessRules(
@@ -163,6 +167,7 @@ test('accepts a balanced distribution across three equipment types', () => {
   ]);
   const workout = createWorkout();
   workout.blocks[0].exercises.push(exercise('exercise-3'));
+  workout.blocks[0].exercises.push(exercise('exercise-1'));
 
   assert.doesNotThrow(() =>
     validateGeneratedWorkoutBusinessRules(
@@ -272,6 +277,7 @@ test('rejects totals outside tolerance and equipment differences above two', () 
     exercise('exercise-4'),
     exercise('exercise-5'),
     exercise('exercise-6'),
+    exercise('exercise-1'),
   );
 
   assert.throws(
@@ -294,6 +300,7 @@ test('rejects totals outside tolerance and equipment differences above two', () 
     exercise('exercise-3'),
     exercise('exercise-4'),
     exercise('exercise-5'),
+    exercise('exercise-1'),
   );
   assert.throws(
     () => validateGeneratedWorkoutBusinessRules(
@@ -330,7 +337,11 @@ test('rejects invalid block types, limits, empty warm-ups, and missing work', ()
   assert.equal(generatedWorkoutSchema.safeParse(workout).success, false);
   assert.equal(generatedWorkoutSchema.safeParse({
     ...createWorkout(),
-    warmup: { exercises: [] },
+    warmup: { rounds: 2, exercises: [] },
+  }).success, false);
+  assert.equal(generatedWorkoutSchema.safeParse({
+    ...createWorkout(),
+    warmup: { exercises: [exercise('exercise-1')] },
   }).success, false);
   assert.equal(generatedWorkoutSchema.safeParse({
     ...createWorkout(),

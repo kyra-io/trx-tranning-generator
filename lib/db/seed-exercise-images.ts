@@ -180,6 +180,20 @@ const imageMappings: ExerciseImageMapping[] = [
   freeExerciseDbMapping('dumbbell-shrug', 'Dumbbell_Shrug', 0),
   freeExerciseDbMapping('dumbbell-side-bend', 'Dumbbell_Side_Bend', 0),
   freeExerciseDbMapping('dumbbell-spell-caster', 'Spell_Caster', 0),
+  freeExerciseDbMapping('star-jump', 'Star_Jump', 0),
+  freeExerciseDbMapping('rope-jumping', 'Rope_Jumping', 0),
+  freeExerciseDbMapping('fast-skipping', 'Fast_Skipping', 0),
+  freeExerciseDbMapping('double-leg-butt-kick', 'Double_Leg_Butt_Kick', 0),
+  freeExerciseDbMapping('knee-tuck-jump', 'Knee_Tuck_Jump', 0),
+  freeExerciseDbMapping('scissors-jump', 'Scissors_Jump', 0),
+  freeExerciseDbMapping('arm-circles', 'Arm_Circles', 0),
+  freeExerciseDbMapping('shoulder-circles', 'Shoulder_Circles', 0),
+  freeExerciseDbMapping('standing-hip-circles', 'Standing_Hip_Circles', 0),
+  freeExerciseDbMapping('cat-stretch', 'Cat_Stretch', 0),
+  freeExerciseDbMapping('worlds-greatest-stretch', 'Worlds_Greatest_Stretch', 0),
+  freeExerciseDbMapping('dynamic-chest-stretch', 'Dynamic_Chest_Stretch', 0),
+  freeExerciseDbMapping('dynamic-back-stretch', 'Dynamic_Back_Stretch', 0),
+  freeExerciseDbMapping('standing-toe-touches', 'Standing_Toe_Touches', 0),
 ];
 
 const rejectedMappings: ExerciseImageMapping[] = [

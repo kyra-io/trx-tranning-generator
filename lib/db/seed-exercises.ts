@@ -14,11 +14,12 @@ type MuscleMapping = {
 type ExerciseSeed = {
   slug: string;
   name: string;
-  family: 'row' | 'press' | 'curl' | 'squat' | 'lunge' | 'hinge' | 'plank' | 'rollout' | 'rotation';
+  family: 'row' | 'press' | 'curl' | 'squat' | 'lunge' | 'hinge' | 'plank' | 'rollout' | 'rotation' | 'jump' | 'stretch' | 'mobility';
   primaryPattern: 'pull' | 'push' | 'squat' | 'lunge' | 'hinge' | 'plank' | 'rotate';
   difficulty: 1 | 2 | 3;
   unilateral: boolean;
   equipment?: 'suspension_trainer' | 'dumbbell' | 'bodyweight';
+  warmup?: boolean;
   instructions: string;
   sourceName?: string;
   sourceUrl: string | null;
@@ -492,6 +493,90 @@ const catalog: ExerciseSeed[] = [
     sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Spider_Crawl'),
     muscles: [m('abs', 'primary', 0.9), m('obliques', 'primary', 0.8), m('chest', 'secondary', 0.55), m('front-delts', 'secondary', 0.55), m('triceps', 'stabilizer', 0.4)],
   },
+  {
+    slug: 'star-jump', name: 'Star Jump', family: 'jump', primaryPattern: 'push', difficulty: 1, unilateral: false, equipment: 'bodyweight', warmup: true,
+    instructions: 'Stand with your feet together and arms by your sides. Jump while spreading your feet and raising your arms overhead into a star shape. Land softly with bent knees and immediately return to the starting position.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Star_Jump'),
+    muscles: [m('quads', 'primary', 0.9), m('glutes', 'primary', 0.7), m('calves', 'secondary', 0.7), m('side-delts', 'secondary', 0.5), m('abs', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'rope-jumping', name: 'Rope Jumping', family: 'jump', primaryPattern: 'push', difficulty: 1, unilateral: false, equipment: 'bodyweight', warmup: true,
+    instructions: 'Hold an end of the jump rope in each hand and position the rope behind you on the ground. Turn the rope over your head and jump over it as it reaches the floor. Find a steady pace you can maintain. Use a jump rope, or simulate the motion without one if needed.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Rope_Jumping'),
+    muscles: [m('calves', 'primary', 0.9), m('quads', 'primary', 0.8), m('hamstrings', 'secondary', 0.6), m('glutes', 'secondary', 0.5), m('forearms', 'stabilizer', 0.4), m('abs', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'fast-skipping', name: 'Fast Skipping', family: 'jump', primaryPattern: 'push', difficulty: 1, unilateral: false, equipment: 'bodyweight', warmup: true,
+    instructions: 'Skip quickly on the balls of your feet with a short ground contact time. Keep your knees soft and your torso tall while your arms swing naturally. Stay light and springy throughout.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Fast_Skipping'),
+    muscles: [m('quads', 'primary', 0.9), m('glutes', 'primary', 0.7), m('calves', 'secondary', 0.6), m('hamstrings', 'secondary', 0.5), m('abs', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'double-leg-butt-kick', name: 'Double Leg Butt Kick', family: 'jump', primaryPattern: 'hinge', difficulty: 1, unilateral: false, equipment: 'bodyweight', warmup: true,
+    instructions: 'Jog in place and kick both heels toward your glutes on each bound. Keep your torso upright and land on the balls of your feet. Maintain a quick, rhythmic pace.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Double_Leg_Butt_Kick'),
+    muscles: [m('hamstrings', 'primary', 0.9), m('quads', 'primary', 0.7), m('glutes', 'secondary', 0.6), m('calves', 'secondary', 0.6), m('abs', 'stabilizer', 0.3)],
+  },
+  {
+    slug: 'knee-tuck-jump', name: 'Knee Tuck Jump', family: 'jump', primaryPattern: 'push', difficulty: 2, unilateral: false, equipment: 'bodyweight', warmup: true,
+    instructions: 'Lower into a quarter squat, then jump vertically and pull both knees toward your chest. Land softly with bent knees and reset before the next repetition. Keep the movement controlled rather than maximal.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Knee_Tuck_Jump'),
+    muscles: [m('quads', 'primary', 0.9), m('abs', 'primary', 0.7), m('glutes', 'secondary', 0.6), m('calves', 'secondary', 0.5), m('hamstrings', 'secondary', 0.5)],
+  },
+  {
+    slug: 'scissors-jump', name: 'Scissors Jump', family: 'jump', primaryPattern: 'lunge', difficulty: 1, unilateral: true, equipment: 'bodyweight', warmup: true,
+    instructions: 'Begin in a lunge with both knees bent. Jump vertically and switch your leg position in the air. Land softly in the opposite lunge and continue alternating without pausing.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Scissors_Jump'),
+    muscles: [m('quads', 'primary', 0.9), m('glutes', 'primary', 0.7), m('hamstrings', 'secondary', 0.6), m('calves', 'secondary', 0.6)],
+  },
+  {
+    slug: 'arm-circles', name: 'Arm Circles', family: 'mobility', primaryPattern: 'push', difficulty: 1, unilateral: false, equipment: 'bodyweight', warmup: true,
+    instructions: 'Stand tall with your arms extended out to the sides at shoulder height. Make slow, controlled circles forward, then reverse the direction. Keep your shoulders relaxed and your torso still.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Arm_Circles'),
+    muscles: [m('side-delts', 'primary', 0.8), m('front-delts', 'primary', 0.6), m('upper-back', 'secondary', 0.4), m('rear-delts', 'secondary', 0.4)],
+  },
+  {
+    slug: 'shoulder-circles', name: 'Shoulder Circles', family: 'mobility', primaryPattern: 'push', difficulty: 1, unilateral: false, equipment: 'bodyweight', warmup: true,
+    instructions: 'Stand tall and roll your shoulders forward in smooth circles. Reverse the direction after several repetitions. Keep your arms relaxed and breathe steadily.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Shoulder_Circles'),
+    muscles: [m('side-delts', 'primary', 0.7), m('upper-back', 'primary', 0.6), m('rear-delts', 'secondary', 0.5), m('front-delts', 'secondary', 0.5)],
+  },
+  {
+    slug: 'standing-hip-circles', name: 'Standing Hip Circles', family: 'mobility', primaryPattern: 'rotate', difficulty: 1, unilateral: false, equipment: 'bodyweight', warmup: true,
+    instructions: 'Stand with your hands on your hips and feet around shoulder width. Draw controlled circles with your hips in one direction, then reverse. Keep your knees soft and your upper body stable.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Standing_Hip_Circles'),
+    muscles: [m('obliques', 'primary', 0.7), m('glutes', 'primary', 0.6), m('lower-back', 'secondary', 0.5), m('abs', 'secondary', 0.5)],
+  },
+  {
+    slug: 'cat-stretch', name: 'Cat Stretch', family: 'mobility', primaryPattern: 'rotate', difficulty: 1, unilateral: false, equipment: 'bodyweight', warmup: true,
+    instructions: 'Start on hands and knees with a neutral spine. Round your back and tuck your chin as you exhale, then arch your back and lift your chest as you inhale. Move slowly through the full range.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Cat_Stretch'),
+    muscles: [m('lower-back', 'primary', 0.9), m('abs', 'primary', 0.6), m('upper-back', 'secondary', 0.5), m('obliques', 'secondary', 0.4)],
+  },
+  {
+    slug: 'worlds-greatest-stretch', name: "World's Greatest Stretch", family: 'stretch', primaryPattern: 'lunge', difficulty: 2, unilateral: true, equipment: 'bodyweight', warmup: true,
+    instructions: 'Step into a deep lunge and place both hands inside the front foot. Rotate the same-side arm up toward the ceiling while keeping the hips square. Return through center and repeat on the other side.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Worlds_Greatest_Stretch'),
+    muscles: [m('hamstrings', 'primary', 0.8), m('glutes', 'primary', 0.7), m('obliques', 'primary', 0.6), m('quads', 'secondary', 0.5), m('lower-back', 'secondary', 0.4)],
+  },
+  {
+    slug: 'dynamic-chest-stretch', name: 'Dynamic Chest Stretch', family: 'stretch', primaryPattern: 'push', difficulty: 1, unilateral: false, equipment: 'bodyweight', warmup: true,
+    instructions: 'Stand tall and extend your arms out to the sides. Sweep them forward and across your chest, alternating the arm on top. Keep the movement smooth and controlled without forcing the range.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Dynamic_Chest_Stretch'),
+    muscles: [m('chest', 'primary', 0.9), m('upper-back', 'secondary', 0.5), m('front-delts', 'secondary', 0.5)],
+  },
+  {
+    slug: 'dynamic-back-stretch', name: 'Dynamic Back Stretch', family: 'stretch', primaryPattern: 'pull', difficulty: 1, unilateral: false, equipment: 'bodyweight', warmup: true,
+    instructions: 'Stand with your feet around shoulder width and arms extended in front. Pull your arms back and squeeze your shoulder blades while keeping your torso tall. Return under control and repeat.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Dynamic_Back_Stretch'),
+    muscles: [m('lats', 'primary', 0.9), m('upper-back', 'primary', 0.7), m('abs', 'secondary', 0.5), m('obliques', 'secondary', 0.4)],
+  },
+  {
+    slug: 'standing-toe-touches', name: 'Standing Toe Touches', family: 'stretch', primaryPattern: 'hinge', difficulty: 1, unilateral: false, equipment: 'bodyweight', warmup: true,
+    instructions: 'Stand tall with your feet together. Hinge at the hips and reach your hands toward your toes without rounding your lower back forcefully. Return to standing slowly and repeat.',
+    sourceName: 'free-exercise-db', sourceUrl: freeExerciseDbExerciseUrl('Standing_Toe_Touches'),
+    muscles: [m('hamstrings', 'primary', 0.9), m('lower-back', 'primary', 0.7), m('calves', 'secondary', 0.5), m('glutes', 'secondary', 0.4)],
+  },
 ];
 
 // Metadata belongs to the local TRX catalog. Keeping it keyed by slug makes
@@ -570,6 +655,20 @@ const metadataBySlug = {
   'bodyweight-russian-twist': { force: 'mixed', mechanic: 'compound', category: 'core', variationGroup: 'russian-twist' },
   'bodyweight-mountain-climber': { force: 'mixed', mechanic: 'compound', category: 'conditioning', variationGroup: 'mountain-climber' },
   'bodyweight-spider-crawl': { force: 'mixed', mechanic: 'compound', category: 'conditioning', variationGroup: 'spider-crawl' },
+  'star-jump': { force: 'push', mechanic: 'compound', category: 'conditioning', variationGroup: 'jump' },
+  'rope-jumping': { force: 'mixed', mechanic: 'compound', category: 'conditioning', variationGroup: 'rope-jump' },
+  'fast-skipping': { force: 'push', mechanic: 'compound', category: 'conditioning', variationGroup: 'skip' },
+  'double-leg-butt-kick': { force: 'push', mechanic: 'compound', category: 'conditioning', variationGroup: 'butt-kick' },
+  'knee-tuck-jump': { force: 'push', mechanic: 'compound', category: 'conditioning', variationGroup: 'jump' },
+  'scissors-jump': { force: 'push', mechanic: 'compound', category: 'conditioning', variationGroup: 'jump' },
+  'arm-circles': { force: 'push', mechanic: 'isolation', category: 'mobility', variationGroup: 'arm-circle' },
+  'shoulder-circles': { force: 'push', mechanic: 'isolation', category: 'mobility', variationGroup: 'shoulder-circle' },
+  'standing-hip-circles': { force: 'pull', mechanic: 'isolation', category: 'mobility', variationGroup: 'hip-circle' },
+  'cat-stretch': { force: 'static', mechanic: 'compound', category: 'mobility', variationGroup: 'cat-stretch' },
+  'worlds-greatest-stretch': { force: 'static', mechanic: 'compound', category: 'mobility', variationGroup: 'hip-opener' },
+  'dynamic-chest-stretch': { force: 'pull', mechanic: 'isolation', category: 'mobility', variationGroup: 'chest-opener' },
+  'dynamic-back-stretch': { force: 'pull', mechanic: 'isolation', category: 'mobility', variationGroup: 'back-opener' },
+  'standing-toe-touches': { force: 'static', mechanic: 'compound', category: 'mobility', variationGroup: 'toe-touch' },
 } satisfies Record<string, ExerciseMetadata>;
 
 async function seedExercises() {
@@ -602,6 +701,7 @@ async function seedExercises() {
     for (const exerciseData of catalog) {
       const {
         muscles: muscleData,
+        warmup = false,
         sourceName = exerciseData.equipment
           ? 'free-exercise-db'
           : 'TRX Training',
@@ -616,13 +716,14 @@ async function seedExercises() {
 
       const [exercise] = await tx
         .insert(exercises)
-        .values({ ...values, ...metadata, equipment, sourceName })
+        .values({ ...values, ...metadata, equipment, isWarmup: warmup, sourceName })
         .onConflictDoUpdate({
           target: exercises.slug,
           set: {
             ...values,
             ...metadata,
             equipment,
+            isWarmup: warmup,
             sourceName,
             updatedAt: new Date(),
           },

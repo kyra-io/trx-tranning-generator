@@ -36,6 +36,13 @@
       "when": 1788791932227,
       "tag": "0004_many_plazm",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790778695523,
+      "tag": "0005_jittery_blue_shield",
+      "breakpoints": true
     }
   ]
 }

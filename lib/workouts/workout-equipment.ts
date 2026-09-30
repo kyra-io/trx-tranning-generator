@@ -18,7 +18,7 @@ export const WORKOUT_EQUIPMENT_COUNT_TOLERANCE = 2;
 export type WorkoutEquipmentPlan = {
   targetExerciseEntries: number;
   exerciseEntryTolerance: typeof WORKOUT_EXERCISE_ENTRY_TOLERANCE;
-  countIncludesWarmup: true;
+  countIncludesWarmup: false;
   maximumEquipmentCountDifference: typeof WORKOUT_EQUIPMENT_COUNT_TOLERANCE;
   balancedTargetCounts: Partial<Record<WorkoutEquipment, number>>;
 };
@@ -54,7 +54,7 @@ export function buildWorkoutEquipmentPlan(
   return {
     targetExerciseEntries: totalExerciseEntries,
     exerciseEntryTolerance: WORKOUT_EXERCISE_ENTRY_TOLERANCE,
-    countIncludesWarmup: true,
+    countIncludesWarmup: false,
     maximumEquipmentCountDifference: WORKOUT_EQUIPMENT_COUNT_TOLERANCE,
     balancedTargetCounts,
   };
