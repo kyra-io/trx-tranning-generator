@@ -21,6 +21,7 @@ const catalog: CandidateExercise[] = Array.from({ length: 42 }, (_, index) => ({
   equipment: index % 2 === 0 ? 'suspension_trainer' : 'dumbbell',
   difficulty: (index % 3) + 1,
   unilateral: false,
+  isWarmup: false,
   muscles: [{ slug: `muscle-${index % 6}`, bodyRegion: null, role: 'primary', activation: 1 }],
 }));
 

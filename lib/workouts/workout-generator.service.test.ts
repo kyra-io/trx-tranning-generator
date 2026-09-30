@@ -21,6 +21,7 @@ const catalog: CandidateExercise[] = Array.from({ length: 8 }, (_, index) => ({
   equipment: index % 2 === 0 ? 'suspension_trainer' : 'dumbbell',
   difficulty: (index % 3) + 1,
   unilateral: index % 2 === 0,
+  isWarmup: false,
   muscles: [{
     slug: `muscle-${index}`,
     bodyRegion: 'upper_body',
@@ -28,6 +29,48 @@ const catalog: CandidateExercise[] = Array.from({ length: 8 }, (_, index) => ({
     activation: 1,
   }],
 }));
+
+const warmupCatalog: CandidateExercise[] = Array.from(
+  { length: 6 },
+  (_, index) => ({
+    id: `warmup-${index}`,
+    slug: index === 0 ? 'rope-jumping' : `warmup-move-${index}`,
+    name: `Warmup ${index}`,
+    family: 'mobility',
+    primaryPattern: 'push',
+    force: 'push',
+    mechanic: 'compound',
+    category: index === 0 ? 'conditioning' : 'mobility',
+    variationGroup: index === 0 ? 'rope-jump' : `warmup-${index}`,
+    equipment: 'bodyweight',
+    difficulty: 1,
+    unilateral: false,
+    isWarmup: true,
+    muscles: [{
+      slug: 'quads',
+      bodyRegion: 'lower_body',
+      role: 'primary',
+      activation: 1,
+    }],
+  }),
+);
+
+const warmupExercise = (exerciseId: string) => ({
+  exerciseId,
+  sets: null,
+  reps: null,
+  repsPerSide: false,
+  durationSeconds: 60,
+  restSeconds: 0,
+  notes: null,
+});
+
+const validWarmup = {
+  rounds: 2,
+  exercises: warmupCatalog
+    .slice(0, 5)
+    .map(({ id }) => warmupExercise(id)),
+};
 
 const input = {
   goal: 'strength' as const,
@@ -110,10 +153,14 @@ test('planner prompt receives compact full catalog metadata and five-workout con
     exerciseSlugs: ['trx-exercise-1'],
     blockTypes: ['superset'],
   }];
-  const prompts = buildWorkoutPrompts(input, eligible, recent);
+  const prompts = buildWorkoutPrompts(input, eligible, warmupCatalog, recent);
   const payload = JSON.parse(prompts.userPrompt);
 
   assert.equal(payload.eligibleExerciseCatalog.length, eligible.length);
+  assert.equal(
+    payload.warmupExerciseCatalog.length,
+    warmupCatalog.length,
+  );
   assert.deepEqual(payload.recentWorkouts, [{
     goal: 'strength',
     focus: 'full_body',
@@ -127,13 +174,15 @@ test('planner prompt receives compact full catalog metadata and five-workout con
   assert.deepEqual(payload.equipmentPlan, {
     targetExerciseEntries: 6,
     exerciseEntryTolerance: 1,
-    countIncludesWarmup: true,
+    countIncludesWarmup: false,
     maximumEquipmentCountDifference: 2,
     balancedTargetCounts: { suspension_trainer: 3, dumbbell: 3 },
   });
   assert.match(prompts.systemPrompt, /Core is not a mandatory phase/);
   assert.match(prompts.systemPrompt, /never add a bench, chair, box, rack/);
   assert.match(prompts.systemPrompt, /between 5 and 7 entries is acceptable/);
+  assert.match(prompts.systemPrompt, /warm-up catalog/);
+  assert.match(prompts.systemPrompt, /jump rope/);
   assert.match(
     prompts.systemPrompt,
     /counts may differ by at most 2/,
@@ -155,6 +204,7 @@ test('planner prompt describes bodyweight-only constraints dynamically', async (
   const prompts = buildWorkoutPrompts(
     { ...input, equipment: ['bodyweight'] },
     [bodyweightExercise],
+    [],
     [],
   );
 
@@ -193,6 +243,7 @@ test('retries a plan rejected for consecutive duplicate exercises', async () => 
   const result = await generateAiPlan(
     input,
     eligible,
+    warmupCatalog,
     [],
     async (completionInput) => {
       completionInputs.push(completionInput);
@@ -203,18 +254,19 @@ test('retries a plan rejected for consecutive duplicate exercises', async () => 
         data: {
           name: 'Test workout',
           estimatedDurationMinutes: 30,
-          warmup: { exercises: [exercise('exercise-0')] },
+          warmup: validWarmup,
           blocks: [{
             name: 'Strength',
             type: 'straight_sets',
             rounds: 1,
             exercises: callCount === 1
               ? [
-                  exercise('exercise-0'),
+                  exercise('exercise-1'),
                   exercise('exercise-1'),
                   exercise('exercise-3'),
                   exercise('exercise-7'),
                   exercise('exercise-4'),
+                  exercise('exercise-6'),
                 ]
               : [
                   exercise('exercise-1'),
@@ -233,7 +285,7 @@ test('retries a plan rejected for consecutive duplicate exercises', async () => 
   assert.ok(completionInputs.every(({ maxAttempts }) => maxAttempts === 1));
   assert.deepEqual(
     completionInputs.map(({ maxTokens }) => maxTokens),
-    [1_500, 2_500],
+    [2_500, 3_500],
   );
   assert.match(
     completionInputs[1].systemPrompt,
@@ -255,7 +307,7 @@ test('does not spend the second plan attempt after a provider rate limit', async
   let callCount = 0;
 
   await assert.rejects(
-    generateAiPlan(input, eligible, [], async () => {
+    generateAiPlan(input, eligible, warmupCatalog, [], async () => {
       callCount += 1;
       throw new AiProviderError(
         'Mistral request failed with status 429',
@@ -270,22 +322,28 @@ test('does not spend the second plan attempt after a provider rate limit', async
 
 test('deterministic fallback uses dynamic block types and no mandatory core block', async () => {
   const { generateDeterministicPlan } = await servicePromise;
-  const strength = generateDeterministicPlan(input, catalog);
+  const strength = generateDeterministicPlan(input, catalog, warmupCatalog);
   const hypertrophy = generateDeterministicPlan(
     { ...input, goal: 'hypertrophy', focus: 'upper_body' },
     catalog,
+    warmupCatalog,
   );
   const fitness = generateDeterministicPlan(
     { ...input, goal: 'general_fitness' },
     catalog,
+    warmupCatalog,
   );
 
   assert.ok(strength.warmup.exercises.length > 0);
-  const strengthExerciseIds = [
-    ...strength.warmup.exercises,
-    ...strength.blocks.flatMap(({ exercises }) => exercises),
-  ].map(({ exerciseId }) => exerciseId);
-  const strengthEquipment = strengthExerciseIds.map(
+  assert.ok(
+    strength.warmup.exercises.every(({ exerciseId }) =>
+      warmupCatalog.some(({ id }) => id === exerciseId),
+    ),
+  );
+  const strengthBlockIds = strength.blocks
+    .flatMap(({ exercises }) => exercises)
+    .map(({ exerciseId }) => exerciseId);
+  const strengthEquipment = strengthBlockIds.map(
     (exerciseId) => catalog.find(({ id }) => id === exerciseId)?.equipment,
   );
   assert.equal(
@@ -317,18 +375,18 @@ test('deterministic fallback remains evenly balanced across three equipment type
       equipment: ['suspension_trainer', 'dumbbell', 'bodyweight'],
     },
     candidates,
+    warmupCatalog,
   );
   const equipmentById = new Map(
     candidates.map(({ id, equipment }) => [id, equipment]),
   );
-  const counts = [
-    ...workout.warmup.exercises,
-    ...workout.blocks.flatMap(({ exercises }) => exercises),
-  ].reduce((result, { exerciseId }) => {
-    const equipment = equipmentById.get(exerciseId)!;
-    result.set(equipment, (result.get(equipment) ?? 0) + 1);
-    return result;
-  }, new Map<string, number>());
+  const counts = workout.blocks
+    .flatMap(({ exercises }) => exercises)
+    .reduce((result, { exerciseId }) => {
+      const equipment = equipmentById.get(exerciseId)!;
+      result.set(equipment, (result.get(equipment) ?? 0) + 1);
+      return result;
+    }, new Map<string, number>());
 
   assert.deepEqual(Object.fromEntries(counts), {
     suspension_trainer: 2,

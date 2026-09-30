@@ -22,7 +22,7 @@ export const WORKOUT_GENERATION_LIMITS = {
   blockCount: { minimum: 1, maximum: 5 },
   rounds: { minimum: 1, maximum: 6 },
   exercisesPerBlock: { minimum: 1, maximum: 8 },
-  warmupExercises: { minimum: 1, maximum: 4 },
+  warmupExercises: { minimum: 1, maximum: 6 },
   sets: { minimum: 1, maximum: 6 },
   reps: { minimum: 1, maximum: 50 },
   durationSeconds: { minimum: 10, maximum: 180 },
@@ -80,6 +80,9 @@ export const generatedWorkoutSchema = z
     name: z.string().trim().min(1).max(200),
     estimatedDurationMinutes: z.number().int().min(1).max(120),
     warmup: z.object({
+      rounds: z.number().int()
+        .min(WORKOUT_GENERATION_LIMITS.rounds.minimum)
+        .max(WORKOUT_GENERATION_LIMITS.rounds.maximum),
       exercises: z.array(generatedWorkoutExerciseSchema)
         .min(WORKOUT_GENERATION_LIMITS.warmupExercises.minimum)
         .max(WORKOUT_GENERATION_LIMITS.warmupExercises.maximum),
@@ -130,8 +133,12 @@ function buildExerciseJsonSchema(allowedExerciseIds?: readonly string[]) {
 
 export function buildGeneratedWorkoutJsonSchema(
   allowedExerciseIds?: readonly string[],
+  warmupExerciseIds?: readonly string[],
 ) {
   const exerciseJsonSchema = buildExerciseJsonSchema(allowedExerciseIds);
+  const warmupSchema = buildExerciseJsonSchema(
+    warmupExerciseIds ?? allowedExerciseIds,
+  );
 
   return {
     type: 'object',
@@ -141,14 +148,18 @@ export function buildGeneratedWorkoutJsonSchema(
       warmup: {
         type: 'object',
         properties: {
+          rounds: {
+            type: 'integer',
+            ...WORKOUT_GENERATION_LIMITS.rounds,
+          },
           exercises: {
             type: 'array',
             minItems: WORKOUT_GENERATION_LIMITS.warmupExercises.minimum,
             maxItems: WORKOUT_GENERATION_LIMITS.warmupExercises.maximum,
-            items: exerciseJsonSchema,
+            items: warmupSchema,
           },
         },
-        required: ['exercises'],
+        required: ['rounds', 'exercises'],
         additionalProperties: false,
       },
       blocks: {
@@ -189,7 +200,8 @@ export type GeneratedWorkoutValidationCode =
   | 'INVALID_EQUIPMENT_COUNTS'
   | 'INVALID_EXERCISE_TOTAL'
   | 'DUPLICATE_EXERCISE'
-  | 'INVALID_DURATION';
+  | 'INVALID_DURATION'
+  | 'INVALID_WARMUP_DURATION';
 
 export class GeneratedWorkoutValidationError extends Error {
   constructor(
@@ -218,11 +230,15 @@ export function validateGeneratedWorkoutBusinessRules(
   requestedDurationMinutes: number,
   equipmentByExerciseId?: ReadonlyMap<string, string>,
   equipmentPlan?: WorkoutEquipmentPlan,
+  warmupExerciseIds?: ReadonlySet<string>,
 ) {
-  const exerciseIds = [
-    ...workout.warmup.exercises,
-    ...workout.blocks.flatMap((block) => block.exercises),
-  ].map((exercise) => exercise.exerciseId);
+  const warmupIds = workout.warmup.exercises.map(
+    (exercise) => exercise.exerciseId,
+  );
+  const blockIds = workout.blocks.flatMap((block) =>
+    block.exercises.map((exercise) => exercise.exerciseId),
+  );
+  const exerciseIds = [...warmupIds, ...blockIds];
 
   for (const exerciseId of exerciseIds) {
     if (!allowedExerciseIds.has(exerciseId)) {
@@ -234,10 +250,22 @@ export function validateGeneratedWorkoutBusinessRules(
     }
   }
 
+  if (warmupExerciseIds) {
+    for (const exerciseId of warmupIds) {
+      if (!warmupExerciseIds.has(exerciseId)) {
+        throw new GeneratedWorkoutValidationError(
+          'UNKNOWN_EXERCISE_ID',
+          `Exercise ${exerciseId} is not allowed in the warm-up`,
+          { exerciseId },
+        );
+      }
+    }
+  }
+
   if (equipmentByExerciseId) {
     const availableEquipment = new Set(equipmentByExerciseId.values());
     const selectedEquipment = new Set(
-      exerciseIds.flatMap((exerciseId) => {
+      blockIds.flatMap((exerciseId) => {
         const equipment = equipmentByExerciseId.get(exerciseId);
         return equipment ? [equipment] : [];
       }),
@@ -254,7 +282,7 @@ export function validateGeneratedWorkoutBusinessRules(
       );
     }
 
-    const equipmentCounts = exerciseIds.reduce((counts, exerciseId) => {
+    const equipmentCounts = blockIds.reduce((counts, exerciseId) => {
       const equipment = equipmentByExerciseId.get(exerciseId);
       if (equipment) counts.set(equipment, (counts.get(equipment) ?? 0) + 1);
       return counts;
@@ -267,17 +295,17 @@ export function validateGeneratedWorkoutBusinessRules(
         equipmentPlan.targetExerciseEntries +
         equipmentPlan.exerciseEntryTolerance;
       if (
-        exerciseIds.length < minimumExerciseEntries ||
-        exerciseIds.length > maximumExerciseEntries
+        blockIds.length < minimumExerciseEntries ||
+        blockIds.length > maximumExerciseEntries
       ) {
         throw new GeneratedWorkoutValidationError(
           'INVALID_EXERCISE_TOTAL',
-          `Workout must contain between ${minimumExerciseEntries} and ${maximumExerciseEntries} exercise entries; received ${exerciseIds.length}`,
+          `Workout must contain between ${minimumExerciseEntries} and ${maximumExerciseEntries} exercise entries; received ${blockIds.length}`,
           {
             targetTotal: equipmentPlan.targetExerciseEntries,
             minimumTotal: minimumExerciseEntries,
             maximumTotal: maximumExerciseEntries,
-            receivedTotal: exerciseIds.length,
+            receivedTotal: blockIds.length,
           },
         );
       }

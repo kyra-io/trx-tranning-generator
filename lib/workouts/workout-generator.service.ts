@@ -37,6 +37,12 @@ import {
 } from '@/lib/workouts/workout.repository';
 import { getProfileById } from '@/lib/profiles/profile.repository';
 import {
+  estimateWarmupMinutes,
+  getWarmupTargetMinutes,
+  isWarmupDurationWithinTolerance,
+  WARMUP_DURATION,
+} from '@/lib/workouts/workout-duration';
+import {
   buildWorkoutEquipmentPlan,
   type WorkoutEquipment,
   type WorkoutEquipmentPlan,
@@ -59,12 +65,24 @@ type CatalogExercise = CandidateExercise;
 const RECENT_WORKOUT_LIMIT = 5;
 const FALLBACK_HISTORY_LIMIT = 10;
 const MAX_AI_PLAN_ATTEMPTS = 2;
-const AI_PLAN_MAX_TOKENS = [1_500, 2_500] as const;
+const AI_PLAN_MAX_TOKENS = [2_500, 3_500] as const;
 const maximumDifficulty: Record<WorkoutLevel, number> = {
   beginner: 1,
   intermediate: 2,
   advanced: 3,
 };
+
+// Bodyweight movements that already exist in the main catalog and are also
+// suitable as warm-up mobility work without leaving the main candidate pool.
+const WARMUP_ALLOWLIST_SLUGS = [
+  'bodyweight-squat',
+  'bodyweight-glute-bridge',
+  'bodyweight-inchworm',
+  'bodyweight-mountain-climber',
+  'bodyweight-walking-lunge',
+] as const;
+
+const ROPE_JUMPING_SLUG = 'rope-jumping';
 
 export class WorkoutGenerationError extends Error {
   constructor(
@@ -118,6 +136,7 @@ async function loadExerciseCatalog(): Promise<CatalogExercise[]> {
       equipment: exercises.equipment,
       difficulty: exercises.difficulty,
       unilateral: exercises.unilateral,
+      isWarmup: exercises.isWarmup,
     })
     .from(exercises)
     .orderBy(asc(exercises.slug));
@@ -168,8 +187,26 @@ export function getEligibleExerciseCatalog(
   const selectedEquipment = new Set<string>(equipment);
   return catalog.filter(
     (exercise) =>
+      !exercise.isWarmup &&
       exercise.difficulty <= maximumDifficulty[level] &&
       selectedEquipment.has(exercise.equipment),
+  );
+}
+
+/**
+ * Warm-up candidates are independent of the selected equipment: every session
+ * gets an equipment-free warm-up pool, plus a small allowlist of bodyweight
+ * movements that remain eligible as main work too.
+ */
+export function getWarmupExerciseCatalog(
+  catalog: CatalogExercise[],
+  level: WorkoutLevel,
+) {
+  const allowlist = new Set<string>(WARMUP_ALLOWLIST_SLUGS);
+  return catalog.filter(
+    (exercise) =>
+      (exercise.isWarmup || allowlist.has(exercise.slug)) &&
+      exercise.difficulty <= maximumDifficulty[level],
   );
 }
 
@@ -208,19 +245,97 @@ export function getTargetExerciseCount(durationMinutes: number) {
   return 10;
 }
 
+function shuffle<T>(items: readonly T[], random: () => number = Math.random) {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(random() * (index + 1));
+    [copy[index], copy[target]] = [copy[target], copy[index]];
+  }
+  return copy;
+}
+
+function selectWarmupExercises(
+  warmupCatalog: CatalogExercise[],
+  count: number,
+  random: () => number = Math.random,
+) {
+  const byVariationGroup = new Map<string, CatalogExercise>();
+  for (const exercise of warmupCatalog) {
+    const group = exercise.variationGroup ?? exercise.id;
+    if (!byVariationGroup.has(group)) byVariationGroup.set(group, exercise);
+  }
+  const pool = [...byVariationGroup.values()];
+  const rope = pool.filter((exercise) => exercise.slug === ROPE_JUMPING_SLUG);
+  const others = shuffle(
+    pool.filter((exercise) => exercise.slug !== ROPE_JUMPING_SLUG),
+    random,
+  );
+  return [...rope, ...others].slice(0, count);
+}
+
+/**
+ * Builds a timed warm-up circuit sized to hit the 10-15 minute target. Warm-up
+ * time is additional to the requested training duration.
+ */
+export function buildDeterministicWarmup(
+  input: GenerateWorkoutInput,
+  warmupCatalog: CatalogExercise[],
+): GeneratedWorkout['warmup'] {
+  if (warmupCatalog.length === 0) {
+    throw new WorkoutGenerationError(
+      'NO_COMPATIBLE_EXERCISES',
+      'No warm-up exercises available',
+    );
+  }
+
+  const targetMinutes = getWarmupTargetMinutes(input.durationMinutes);
+  const rounds = WARMUP_DURATION.rounds;
+  const count = Math.min(
+    WORKOUT_GENERATION_LIMITS.warmupExercises.maximum,
+    warmupCatalog.length,
+  );
+  const exercises = selectWarmupExercises(warmupCatalog, count);
+  const perExerciseSeconds = (targetMinutes * 60) / rounds / exercises.length;
+  const durationSeconds = Math.min(
+    WORKOUT_GENERATION_LIMITS.durationSeconds.maximum,
+    Math.max(
+      WORKOUT_GENERATION_LIMITS.durationSeconds.minimum,
+      Math.round(perExerciseSeconds * 0.7),
+    ),
+  );
+  const restSeconds = Math.min(
+    WORKOUT_GENERATION_LIMITS.restSeconds.maximum,
+    Math.max(0, Math.round(perExerciseSeconds - durationSeconds)),
+  );
+
+  return {
+    rounds,
+    exercises: exercises.map((exercise) => ({
+      exerciseId: exercise.id,
+      sets: null,
+      reps: null,
+      repsPerSide: false,
+      durationSeconds,
+      restSeconds,
+      notes: exercise.slug === ROPE_JUMPING_SLUG
+        ? 'Use a jump rope, or simulate the motion if you do not have one.'
+        : null,
+    })),
+  };
+}
+
 export function generateDeterministicPlan(
   input: GenerateWorkoutInput,
   candidates: CatalogExercise[],
+  warmupCatalog: CatalogExercise[],
 ): GeneratedWorkout {
-  const selected = candidates.slice(
+  const workExercises = candidates.slice(
     0,
     getTargetExerciseCount(input.durationMinutes),
   );
-  const warmupCount = input.durationMinutes >= 45 ? 2 : 1;
-  const warmupExercises = selected.slice(0, warmupCount);
-  const workExercises = selected.slice(warmupCount);
+  const warmup = buildDeterministicWarmup(input, warmupCatalog);
 
-  if (warmupExercises.length === 0 || workExercises.length === 0) {
+  if (workExercises.length === 0) {
     throw new WorkoutGenerationError(
       'NO_COMPATIBLE_EXERCISES',
       'No compatible exercises available',
@@ -243,15 +358,7 @@ export function generateDeterministicPlan(
   return {
     name: getWorkoutName(input.goal, input.focus),
     estimatedDurationMinutes: input.durationMinutes,
-    warmup: {
-      exercises: warmupExercises.map((exercise) => ({
-        ...fallbackPrescription(input, exercise, false),
-        sets: 1,
-        reps: isTimedExercise(exercise) ? null : 8,
-        durationSeconds: isTimedExercise(exercise) ? 30 : null,
-        restSeconds: 15,
-      })),
-    },
+    warmup,
     blocks: chunks.slice(0, WORKOUT_GENERATION_LIMITS.blockCount.maximum).map(
       (blockExercises, index) => {
         const usesRounds = blockType !== 'straight_sets';
@@ -273,9 +380,11 @@ export function generateDeterministicPlan(
 export function buildWorkoutPrompts(
   input: GenerateWorkoutInput,
   eligibleExercises: CatalogExercise[],
+  warmupExercises: CatalogExercise[],
   recentWorkouts: RecentWorkoutContext[],
 ) {
   const tolerance = getDurationTolerance(input.durationMinutes);
+  const warmupTargetMinutes = getWarmupTargetMinutes(input.durationMinutes);
   const equipmentPlan = buildWorkoutEquipmentPlan(
     input.equipment,
     getTargetExerciseCount(input.durationMinutes),
@@ -300,12 +409,12 @@ Priorities, in order:
 3. Choose an appropriate structure: straight sets, supersets, circuits, intervals, EMOM, AMRAP, or an optional finisher.
 4. Use movement patterns, force, mechanics, category, difficulty, and muscles to select exercises.
 5. Create meaningful variation from recent workouts. Repetition is allowed when it is a sound programming choice; novelty is secondary to coherence.
-6. Keep the total duration realistic and within the stated tolerance.
-7. Use only exercise IDs from the supplied eligible catalog.
-8. Aim for ${equipmentPlan.targetExerciseEntries} exercise entries across the warm-up and all workout blocks combined; between ${equipmentPlan.targetExerciseEntries - equipmentPlan.exerciseEntryTolerance} and ${equipmentPlan.targetExerciseEntries + equipmentPlan.exerciseEntryTolerance} entries is acceptable. Every warm-up or block exercise counts as one entry, including repeated exercises.
+6. Keep the main training duration realistic and within the stated tolerance. The warm-up is additional time and must not be counted toward it.
+7. Use only exercise IDs from the supplied eligible catalog for the main blocks, and only IDs from the warm-up catalog for the warm-up.
+8. Aim for ${equipmentPlan.targetExerciseEntries} exercise entries across all main workout blocks (the warm-up is planned separately); between ${equipmentPlan.targetExerciseEntries - equipmentPlan.exerciseEntryTolerance} and ${equipmentPlan.targetExerciseEntries + equipmentPlan.exerciseEntryTolerance} entries is acceptable. Every block exercise counts as one entry, including repeated exercises.
 9. Include every selected equipment type. Equipment-entry counts may differ by at most ${equipmentPlan.maximumEquipmentCountDifference}. Aim for this balanced distribution: ${formatEquipmentCounts(equipmentPlan.balancedTargetCounts)}, but these exact counts are not required. ${equipmentConstraints}
 
-Warm-up is mandatory, proportional to the session, and represented separately. Core is not a mandatory phase; include core work only when it serves the requested workout. Avoid multiple near-identical variation groups unless there is a clear programming reason. Prefer each exercise once. A purposeful repeat is allowed, but never use the same exercise ID more than twice anywhere in the workout and never repeat it in consecutive positions.
+The warm-up is mandatory, separate, and its time is added on top of the requested training duration. Build it as a timed circuit with ${WARMUP_DURATION.rounds} rounds using only exercise IDs from the supplied warm-up catalog: mostly equipment-free cardio and mobility movements such as jumping jacks, jump rope, skipping, arm and hip circles, and bodyweight squats. Target about ${warmupTargetMinutes} minutes for the warm-up and stay within ${WARMUP_DURATION.minimumMinutes}-${WARMUP_DURATION.maximumMinutes} minutes. Include a jump-rope movement when one is available in the warm-up catalog. Core is not a mandatory phase; include core work only when it serves the requested workout. Avoid multiple near-identical variation groups unless there is a clear programming reason. Prefer each exercise once. A purposeful repeat is allowed, but never use the same exercise ID more than twice anywhere in the workout and never repeat it in consecutive positions.
 
 Interpret strength as generally favoring compound work, moderate/lower reps, and longer rest; hypertrophy as generally favoring more volume, compound plus isolation work, and useful supersets; general fitness permits more circuits, conditioning, and intervals. These are tendencies, not templates. Intensity may alter difficulty within the eligible catalog, volume, density, rest, unilateral work, and structure.
 
@@ -320,7 +429,7 @@ OUTPUT FORMAT — MANDATORY:
 - Include every required property. Use null only where the schema permits null.
 - Keep names and notes concise so the complete object fits within the response limit.
 - Before responding, silently verify that JSON.parse() can parse the complete output.`;
-  const exerciseCatalog = eligibleExercises.map((exercise) => ({
+  const toCatalogEntry = (exercise: CatalogExercise) => ({
     id: exercise.id,
     name: exercise.name,
     primaryPattern: exercise.primaryPattern,
@@ -332,7 +441,9 @@ OUTPUT FORMAT — MANDATORY:
     variationGroup: exercise.variationGroup,
     equipment: exercise.equipment,
     muscles: exercise.muscles.map(({ slug, role }) => ({ slug, role })),
-  }));
+  });
+  const exerciseCatalog = eligibleExercises.map(toCatalogEntry);
+  const warmupCatalog = warmupExercises.map(toCatalogEntry);
   const history = recentWorkouts.map((workout) => ({
     goal: workout.goal,
     focus: workout.focus,
@@ -346,7 +457,10 @@ OUTPUT FORMAT — MANDATORY:
       preferences: input,
       equipmentPlan,
       durationToleranceMinutes: tolerance,
+      warmupTargetMinutes: warmupTargetMinutes,
+      warmupDurationToleranceMinutes: WARMUP_DURATION.toleranceMinutes,
       eligibleExerciseCatalog: exerciseCatalog,
+      warmupExerciseCatalog: warmupCatalog,
       recentWorkouts: history,
     }),
     equipmentPlan,
@@ -356,19 +470,29 @@ OUTPUT FORMAT — MANDATORY:
 export async function generateAiPlan(
   input: GenerateWorkoutInput,
   eligibleExercises: CatalogExercise[],
+  warmupExercises: CatalogExercise[],
   recentWorkouts: RecentWorkoutContext[],
   complete = generateStructuredCompletion,
 ) {
   const prompts = buildWorkoutPrompts(
     input,
     eligibleExercises,
+    warmupExercises,
     recentWorkouts,
   );
-  const allowedExerciseIds = new Set(
+  const allowedMainExerciseIds = new Set(
     eligibleExercises.map(({ id }) => id),
   );
+  const allowedWarmupExerciseIds = new Set(
+    warmupExercises.map(({ id }) => id),
+  );
+  const allowedExerciseIds = new Set([
+    ...allowedMainExerciseIds,
+    ...allowedWarmupExerciseIds,
+  ]);
   const workoutJsonSchema = buildGeneratedWorkoutJsonSchema(
-    [...allowedExerciseIds],
+    [...allowedMainExerciseIds],
+    [...allowedWarmupExerciseIds],
   );
   let previousValidationError: string | null = null;
 
@@ -399,7 +523,15 @@ IMPORTANT PLAN RETRY: The previous plan was rejected by the workout validator: $
           eligibleExercises.map(({ id, equipment }) => [id, equipment]),
         ),
         prompts.equipmentPlan,
+        allowedWarmupExerciseIds,
       );
+      if (!isWarmupDurationWithinTolerance(workout.warmup)) {
+        throw new GeneratedWorkoutValidationError(
+          'INVALID_WARMUP_DURATION',
+          `Warm-up must last between ${WARMUP_DURATION.minimumMinutes} and ${WARMUP_DURATION.maximumMinutes} minutes; received ${estimateWarmupMinutes(workout.warmup).toFixed(1)}`,
+          { receivedMinutes: Number(estimateWarmupMinutes(workout.warmup).toFixed(2)) },
+        );
+      }
       return { workout, model: completion.model };
     } catch (error) {
       if (
@@ -482,11 +614,14 @@ async function persistGeneratedWorkout(
     {
       name: 'Warm-up',
       type: 'warm_up',
-      rounds: 1,
+      rounds: generatedWorkout.warmup.rounds,
       exercises: generatedWorkout.warmup.exercises,
     },
     ...generatedWorkout.blocks,
   ];
+  // Warm-up time is additional to the requested training duration.
+  const estimatedDurationMinutes = generatedWorkout.estimatedDurationMinutes +
+    Math.round(estimateWarmupMinutes(generatedWorkout.warmup));
   const workoutId = await db.transaction(async (tx) => {
     const [workout] = await tx.insert(workouts).values({
       profileId,
@@ -495,7 +630,7 @@ async function persistGeneratedWorkout(
       level: input.level,
       focus: input.focus,
       requestedDurationMinutes: input.durationMinutes,
-      estimatedDurationMinutes: generatedWorkout.estimatedDurationMinutes,
+      estimatedDurationMinutes,
       status: 'generated',
     }).returning({ id: workouts.id });
     const blocks = await tx.insert(workoutBlocks).values(
@@ -579,12 +714,20 @@ export async function generateWorkout(
     input.level,
     input.equipment,
   );
+  const warmupExercises = getWarmupExerciseCatalog(catalog, input.level);
   const plannerHistory = recentWorkouts.slice(0, RECENT_WORKOUT_LIMIT);
 
   if (eligibleExercises.length < 2) {
     throw new WorkoutGenerationError(
       'NO_COMPATIBLE_EXERCISES',
       'No compatible exercises available',
+    );
+  }
+
+  if (warmupExercises.length === 0) {
+    throw new WorkoutGenerationError(
+      'NO_COMPATIBLE_EXERCISES',
+      'No warm-up exercises available',
     );
   }
 
@@ -617,6 +760,7 @@ export async function generateWorkout(
     const result = await generateAiPlan(
       input,
       candidates,
+      warmupExercises,
       plannerHistory,
     );
     generatedWorkout = result.workout;
@@ -627,13 +771,21 @@ export async function generateWorkout(
       'AI generation failed, using deterministic fallback:',
       summarizeGenerationError(error),
     );
-    generatedWorkout = generateDeterministicPlan(input, candidates);
+    generatedWorkout = generateDeterministicPlan(
+      input,
+      candidates,
+      warmupExercises,
+    );
     validateGeneratedWorkoutBusinessRules(
       generatedWorkout,
-      new Set(candidates.map(({ id }) => id)),
+      new Set([
+        ...candidates.map(({ id }) => id),
+        ...warmupExercises.map(({ id }) => id),
+      ]),
       input.durationMinutes,
       new Map(candidates.map(({ id, equipment }) => [id, equipment])),
       equipmentPlan,
+      new Set(warmupExercises.map(({ id }) => id)),
     );
   }
 

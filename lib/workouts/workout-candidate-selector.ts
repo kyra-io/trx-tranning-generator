@@ -33,6 +33,7 @@ export type CandidateExercise = {
   equipment: string;
   difficulty: number;
   unilateral: boolean;
+  isWarmup: boolean;
   muscles: Array<{
     slug: string;
     bodyRegion: string | null;
